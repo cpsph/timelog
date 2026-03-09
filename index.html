@@ -37,7 +37,7 @@
                     </div>
                     <div id="user-profile" class="hidden items-center space-x-3">
                         <span id="nav-user-name" class="text-sm font-medium mr-2"></span>
-                        <button onclick="sys.showChangePasswordModal()" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition shadow-sm">Password</button>
+                        <button id="btn-change-password" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition shadow-sm">Password</button>
                         <button id="btn-signout" class="text-sm bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded transition shadow-sm">Sign Out</button>
                     </div>
                 </div>
@@ -288,6 +288,7 @@
                                     <th class="px-6 py-3">Name</th>
                                     <th class="px-6 py-3">Email Address</th>
                                     <th class="px-6 py-3">Role</th>
+                                    <th class="px-6 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="manage-users-body" class="divide-y divide-slate-200">
@@ -330,7 +331,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // User Provided Firebase Configuration
         const firebaseConfig = {
@@ -719,19 +720,70 @@
             async addNewUser() {
                 const name = document.getElementById('new-user-name').value.trim();
                 const email = document.getElementById('new-user-email').value.trim().toLowerCase();
+                const pass = document.getElementById('new-user-pass').value.trim();
                 const role = document.getElementById('new-user-role').value;
 
-                if(!name || !email) return this.showAlert("Error", "Please fill out name and email.", true);
+                if(!name || !email || !pass) return this.showAlert("Error", "Please fill out all fields including password.", true);
                 
                 try {
+                    const userDoc = await getDoc(doc(db, "timesheet_users", email));
+                    if(userDoc.exists()) return this.showAlert("Error", "User with this email already exists.", true);
+
                     await setDoc(doc(db, "timesheet_users", email), {
-                        name: name, email: email, password: "pass123", isAdmin: role === 'admin'
+                        name: name, email: email, password: pass, isAdmin: role === 'admin'
                     });
                     this.closeModal('modal-form');
-                    this.showAlert("Success", `User ${name} added to authorized list.`);
+                    this.showAlert("Success", `User ${name} added successfully.`);
                 } catch(e) {
                     this.showAlert("Database Error", "Failed to add user.", true);
                 }
+            },
+
+            showEditUserModal(email) {
+                const userToEdit = this.users.find(u => u.email === email);
+                if (!userToEdit) return;
+
+                this.showGenericModal("Edit User", `
+                    <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-user-name" class="w-full px-3 py-2 border rounded-lg" value="${userToEdit.name}"></div>
+                    <div class="mt-3"><label class="block text-sm font-medium mb-1">Password</label><input type="text" id="edit-user-pass" class="w-full px-3 py-2 border rounded-lg" value="${userToEdit.password}"></div>
+                    <div class="mt-3"><label class="block text-sm font-medium mb-1">Role</label>
+                    <select id="edit-user-role" class="w-full px-3 py-2 border rounded-lg">
+                        <option value="user" ${!userToEdit.isAdmin ? 'selected' : ''}>Employee</option>
+                        <option value="admin" ${userToEdit.isAdmin ? 'selected' : ''}>Admin</option>
+                    </select></div>
+                `, async () => {
+                    const newName = document.getElementById('edit-user-name').value.trim();
+                    const newPass = document.getElementById('edit-user-pass').value.trim();
+                    const newRole = document.getElementById('edit-user-role').value;
+
+                    if(!newName || !newPass) return this.showAlert("Error", "Name and password cannot be empty.", true);
+
+                    try {
+                        await updateDoc(doc(db, "timesheet_users", email), {
+                            name: newName, password: newPass, isAdmin: newRole === 'admin'
+                        });
+                        this.closeModal('modal-form');
+                        this.showAlert("Success", "User updated successfully.");
+                    } catch(e) {
+                        this.showAlert("Database Error", "Failed to update user.", true);
+                    }
+                });
+            },
+
+            deleteUser(email) {
+                if(email === this.currentUser.email) return this.showAlert("Error", "You cannot delete your own account while logged in.", true);
+                
+                this.showGenericModal("Confirm Delete", `
+                    <p class="text-slate-600 mb-4">Are you sure you want to permanently delete the user <strong>${email}</strong>? They will no longer be able to log in.</p>
+                `, async () => {
+                    try {
+                        await deleteDoc(doc(db, "timesheet_users", email));
+                        this.closeModal('modal-form');
+                        this.showAlert("Success", "User deleted successfully.");
+                    } catch(e) {
+                        this.showAlert("Database Error", "Failed to delete user.", true);
+                    }
+                });
             },
 
             async submitAdminEdit(docId) {
@@ -818,6 +870,8 @@
                     localStorage.removeItem('timesheet_active_session');
                     this.showLoginScreen();
                 };
+
+                document.getElementById('btn-change-password').onclick = () => this.showChangePasswordModal();
                 
                 const tabs = ['personal', 'admin', 'all-records', 'manage-users'];
                 tabs.forEach(t => {
@@ -856,6 +910,7 @@
                     this.showGenericModal("Add Authorized User", `
                         <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="new-user-name" class="w-full px-3 py-2 border rounded-lg"></div>
                         <div class="mt-3"><label class="block text-sm font-medium mb-1">Email Address</label><input type="email" id="new-user-email" class="w-full px-3 py-2 border rounded-lg"></div>
+                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Initial Password</label><input type="text" id="new-user-pass" class="w-full px-3 py-2 border rounded-lg" placeholder="Set default password"></div>
                         <div class="mt-3"><label class="block text-sm font-medium mb-1">Role</label>
                         <select id="new-user-role" class="w-full px-3 py-2 border rounded-lg"><option value="user">Employee</option><option value="admin">Admin</option></select></div>
                     `, () => this.addNewUser());
@@ -873,6 +928,8 @@
                 };
 
                 window.sysProcessApproval = (id, key, action) => this.processApproval(id, key, action);
+                window.sysShowEditUserModal = (email) => this.showEditUserModal(email);
+                window.sysDeleteUser = (email) => this.deleteUser(email);
                 window.sysShowEditRecordModal = (id) => {
                     const rec = this.records.find(r => r.id === id);
                     if(!rec) return;
@@ -1112,6 +1169,10 @@
                         <td class="px-6 py-4 font-medium text-slate-900">${u.name}</td>
                         <td class="px-6 py-4 text-blue-600">${u.email}</td>
                         <td class="px-6 py-4">${roleBadge}</td>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <button onclick="window.sysShowEditUserModal('${u.email}')" class="px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded font-medium transition text-xs shadow-sm border border-blue-200">Edit</button>
+                            <button onclick="window.sysDeleteUser('${u.email}')" class="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-medium transition text-xs shadow-sm border border-red-200">Delete</button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
