@@ -300,42 +300,62 @@
                 </div>
             </div>
 
-            <!-- ADMIN TAB (DEMO CONTROLS) -->
+            <!-- ADMIN TAB (DEMO CONTROLS - MANUAL ENTRY) -->
             <div id="tab-content-demo" class="hidden space-y-6 fade-in">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden max-w-3xl mx-auto">
                     <div class="px-6 py-4 border-b border-amber-200 bg-amber-50">
-                        <h3 class="font-bold text-amber-800">Demo Mode & Scenario Testing</h3>
-                        <p class="text-sm text-amber-700 mt-1">Manipulate the internal system clock to simulate different days and test logging logic.</p>
+                        <h3 class="font-bold text-amber-800">Demo Scenario Testing</h3>
+                        <p class="text-sm text-amber-700 mt-1">Manually inject a custom log into the database to test calculation accuracy and workflows.</p>
                     </div>
-                    <div class="p-6 space-y-8">
-                        
-                        <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
-                            <h4 class="font-bold text-slate-700 mb-4">Time Warp (Jump to specific Date & Time)</h4>
-                            <div class="flex flex-wrap items-end gap-4">
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Simulated Date</label>
-                                    <input type="date" id="demo-date" class="px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium mb-1">Simulated Time</label>
-                                    <input type="time" id="demo-time" class="px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
-                                </div>
-                                <button id="btn-demo-apply" class="bg-amber-600 text-white px-5 py-2 rounded-lg shadow transition hover:bg-amber-700 font-medium">Apply Time Warp</button>
-                                <button id="btn-demo-reset" class="bg-slate-300 text-slate-800 px-5 py-2 rounded-lg shadow transition hover:bg-slate-400 font-medium ml-auto">Reset to Real Time</button>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div class="col-span-full">
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Target Employee</label>
+                                <select id="demo-emp" class="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
+                                    <!-- Populated via JS -->
+                                </select>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                                <input type="date" id="demo-date" class="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500">
+                            </div>
+                            
+                            <div></div> <!-- Spacer -->
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 uppercase tracking-wide">Time In (e.g., 08:00 AM)</label>
+                                <input type="text" id="demo-tIn" class="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" placeholder="08:00 AM">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 uppercase tracking-wide">Time Out (e.g., 05:00 PM)</label>
+                                <input type="text" id="demo-tOut" class="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" placeholder="05:00 PM">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 uppercase tracking-wide">Break In</label>
+                                <input type="text" id="demo-bIn" class="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" placeholder="12:00 PM">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-500 uppercase tracking-wide">Break Out</label>
+                                <input type="text" id="demo-bOut" class="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" placeholder="01:00 PM">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-purple-600 uppercase tracking-wide">Overtime In</label>
+                                <input type="text" id="demo-otIn" class="w-full px-3 py-2 mt-1 border border-purple-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-purple-600 uppercase tracking-wide">Overtime Out</label>
+                                <input type="text" id="demo-otOut" class="w-full px-3 py-2 mt-1 border border-purple-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500">
+                            </div>
+                            
+                            <div class="col-span-full mt-4">
+                                <button id="btn-demo-submit" class="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-lg shadow transition">
+                                    Inject Demo Record
+                                </button>
                             </div>
                         </div>
-
-                        <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
-                            <h4 class="font-bold text-slate-700 mb-4">Quick Forward Actions</h4>
-                            <p class="text-sm text-slate-500 mb-4">Instantly push the clock forward to test duration calculations without waiting.</p>
-                            <div class="flex flex-wrap gap-3">
-                                <button id="btn-demo-add-1h" class="bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition shadow-sm">+ 1 Hour</button>
-                                <button id="btn-demo-add-4h" class="bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition shadow-sm">+ 4 Hours</button>
-                                <button id="btn-demo-add-8h" class="bg-indigo-100 text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition shadow-sm">+ 8 Hours</button>
-                                <button id="btn-demo-add-1d" class="bg-purple-100 text-purple-700 border border-purple-200 px-4 py-2 rounded-lg font-medium hover:bg-purple-200 transition shadow-sm">+ 1 Day (24 hrs)</button>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -403,7 +423,6 @@
             users: [],
             records: [],
             timeOffset: 0,
-            demoOffset: 0, // Artificial offset used for Demo Mode testing
             currentPage: 1,
             daysPerPage: 10,
             unsubs: [],
@@ -540,8 +559,7 @@
             },
 
             getRealTime() {
-                // Incorporate the natural offset + any artificial DEMO offset applied by admin
-                return new Date(Date.now() + this.timeOffset + this.demoOffset);
+                return new Date(Date.now() + this.timeOffset);
             },
 
             // --- REALTIME DATABASE LISTENERS ---
@@ -559,7 +577,10 @@
                 const unsubUsers = onSnapshot(collection(db, "timesheet_users"), (snapshot) => {
                     this.users = [];
                     snapshot.forEach(doc => this.users.push(doc.data()));
-                    if(this.currentUser?.isAdmin) this.renderManageUsersTable();
+                    if(this.currentUser?.isAdmin) {
+                        this.renderManageUsersTable();
+                        this.populateDemoDropdown();
+                    }
                 });
                 this.unsubs.push(unsubUsers);
             },
@@ -860,6 +881,53 @@
                 }
             },
 
+            async submitDemoRecord() {
+                const empEmail = document.getElementById('demo-emp').value;
+                const dateStr = document.getElementById('demo-date').value;
+                if(!empEmail || !dateStr) return this.showAlert("Error", "Employee and Date are required.", true);
+
+                const tIn = document.getElementById('demo-tIn').value || null;
+                const tOut = document.getElementById('demo-tOut').value || null;
+                const bIn = document.getElementById('demo-bIn').value || null;
+                const bOut = document.getElementById('demo-bOut').value || null;
+                const otIn = document.getElementById('demo-otIn').value || null;
+                const otOut = document.getElementById('demo-otOut').value || null;
+
+                const targetUser = this.users.find(u => u.email === empEmail);
+                if(!targetUser) return;
+
+                let workHours = 0;
+                if(tIn) {
+                    let total = this.diffHours(tIn, tOut);
+                    if(bIn && bOut) total -= this.diffHours(bIn, bOut);
+                    workHours = total > 0 ? total : 0;
+                }
+                const otHours = this.diffHours(otIn, otOut);
+                
+                const docId = `${empEmail}_${dateStr}`;
+
+                try {
+                    await setDoc(doc(db, "timesheet_records", docId), {
+                        empEmail: targetUser.email, empName: targetUser.name, dateStr: dateStr,
+                        timeIn: tIn, breakIn: bIn, breakOut: bOut, timeOut: tOut,
+                        otIn: otIn, otOut: otOut, offsetIn: null, offsetOut: null,
+                        workHours: workHours, otHours: otHours, offsetHours: 0, disconnectedHours: 0, 
+                        notes: "[DEMO RECORD]", otStatus: otHours > 0 ? "PENDING" : "N/A", offsetStatus: "N/A", leaveStatus: "N/A"
+                    });
+                    
+                    document.getElementById('demo-tIn').value = '';
+                    document.getElementById('demo-tOut').value = '';
+                    document.getElementById('demo-bIn').value = '';
+                    document.getElementById('demo-bOut').value = '';
+                    document.getElementById('demo-otIn').value = '';
+                    document.getElementById('demo-otOut').value = '';
+                    
+                    this.showAlert("Demo Complete", "Simulated record injected successfully into the database.");
+                } catch(e) {
+                    this.showAlert("Error", "Failed to inject demo record.", true);
+                }
+            },
+
             async updatePassword() {
                 const newP = document.getElementById('pass-new').value;
                 if(!newP) return this.showAlert("Error", "Password cannot be empty.", true);
@@ -885,17 +953,7 @@
             },
             updateClock() {
                 const now = this.getRealTime();
-                const clockEl = document.getElementById('live-clock');
-                
-                // Visual warning if demo mode is active
-                if (this.demoOffset !== 0) {
-                    clockEl.classList.replace('bg-blue-800', 'bg-amber-600');
-                    clockEl.innerText = "DEMO: " + now.toLocaleTimeString('en-US');
-                } else {
-                    clockEl.classList.replace('bg-amber-600', 'bg-blue-800');
-                    clockEl.innerText = "PHT " + now.toLocaleTimeString('en-US');
-                }
-                
+                document.getElementById('live-clock').innerText = "PHT " + now.toLocaleTimeString('en-US');
                 document.getElementById('dash-date-display').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             },
             diffHours(startStr, endStr) {
@@ -969,30 +1027,8 @@
                     `, () => this.addNewUser());
                 };
 
-                // Demo Control Events
-                document.getElementById('btn-demo-apply').onclick = () => {
-                    const dateVal = document.getElementById('demo-date').value;
-                    const timeVal = document.getElementById('demo-time').value;
-                    if(!dateVal || !timeVal) return this.showAlert("Error", "Select both a target date and time.", true);
-                    
-                    const targetDate = new Date(`${dateVal}T${timeVal}`);
-                    const realNetworkTime = Date.now() + this.timeOffset;
-                    this.demoOffset = targetDate.getTime() - realNetworkTime;
-                    
-                    this.showAlert("Time Warped", `System time is now simulating ${targetDate.toLocaleString()}`);
-                    this.renderAllDashboards();
-                };
-                
-                document.getElementById('btn-demo-reset').onclick = () => {
-                    this.demoOffset = 0;
-                    this.showAlert("Reset Success", "System clock restored to real time.");
-                    this.renderAllDashboards();
-                };
-
-                document.getElementById('btn-demo-add-1h').onclick = () => { this.demoOffset += 3600000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-4h').onclick = () => { this.demoOffset += 14400000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-8h').onclick = () => { this.demoOffset += 28800000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-1d').onclick = () => { this.demoOffset += 86400000; this.renderAllDashboards(); };
+                // Demo Manual Injection Submit
+                document.getElementById('btn-demo-submit').onclick = () => this.submitDemoRecord();
 
                 // Globals for inline
                 document.getElementById('btn-close-alert').onclick = () => this.closeModal('modal-alert');
@@ -1025,6 +1061,12 @@
                         </div>
                     `, () => this.submitAdminEdit(id));
                 }
+            },
+
+            populateDemoDropdown() {
+                const select = document.getElementById('demo-emp');
+                if(!select) return;
+                select.innerHTML = this.users.map(u => `<option value="${u.email}">${u.name} (${u.email})</option>`).join('');
             },
 
             showChangePasswordModal() {
