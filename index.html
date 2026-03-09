@@ -130,7 +130,7 @@
                 </div>
 
                 <!-- Action Buttons Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4">
                     <button id="btn-action-TimeIn" class="p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition group flex flex-col items-center justify-center text-green-700 shadow-sm">
                         <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
                         <span class="font-bold text-sm">Time In</span>
@@ -147,7 +147,14 @@
                         <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                         <span class="font-bold text-sm">Time Out</span>
                     </button>
-                    
+                    <button id="btn-action-OvertimeIn" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700 shadow-sm">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span class="font-bold text-sm text-center">Overtime<br>In</span>
+                    </button>
+                    <button id="btn-action-OvertimeOut" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700 shadow-sm">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                        <span class="font-bold text-sm text-center">Overtime<br>Out</span>
+                    </button>
                     <button id="btn-action-Disconnect" class="p-4 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 transition group flex flex-col items-center justify-center text-slate-700 shadow-sm">
                         <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path></svg>
                         <span class="font-bold text-sm text-center">Log<br>Disconnect</span>
@@ -156,7 +163,7 @@
                         <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         <span class="font-bold text-center leading-tight text-sm">Offset<br>In/Out</span>
                     </button>
-                    <button id="btn-action-Leave" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition group flex flex-col items-center justify-center text-emerald-700 col-span-2 md:col-span-1 shadow-sm">
+                    <button id="btn-action-Leave" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition group flex flex-col items-center justify-center text-emerald-700 col-span-2 md:col-span-1 shadow-sm lg:col-span-1">
                         <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
                         <span class="font-bold text-sm">File Leave</span>
                     </button>
@@ -175,9 +182,10 @@
                                     <th class="px-4 py-3">Time In</th>
                                     <th class="px-4 py-3">Breaks (In-Out)</th>
                                     <th class="px-4 py-3">Time Out</th>
-                                    <th class="px-4 py-3 text-purple-600">Auto OT / Deficit</th>
-                                    <th class="px-4 py-3 text-indigo-600">Manual Offset</th>
-                                    <th class="px-4 py-3">Work Hrs</th>
+                                    <th class="px-4 py-3 text-purple-600">OT (In-Out)</th>
+                                    <th class="px-4 py-3 text-indigo-600">Offset (In-Out)</th>
+                                    <th class="px-4 py-3">Work Hrs (Inc. Offset)</th>
+                                    <th class="px-4 py-3">OT / Deficit Hrs</th>
                                     <th class="px-4 py-3">Notes / Approvals</th>
                                 </tr>
                             </thead>
@@ -245,9 +253,9 @@
                                     <th class="px-4 py-3">Date</th>
                                     <th class="px-4 py-3">Time In</th>
                                     <th class="px-4 py-3">Time Out</th>
-                                    <th class="px-4 py-3">Work Hrs</th>
-                                    <th class="px-4 py-3">Auto OT / Deficit</th>
-                                    <th class="px-4 py-3">Manual Offset</th>
+                                    <th class="px-4 py-3">Work Hrs (Inc. Offset)</th>
+                                    <th class="px-4 py-3">OT / Deficit Hrs</th>
+                                    <th class="px-4 py-3">Offset Hrs</th>
                                     <th class="px-4 py-3">Status / Notes</th>
                                     <th class="px-4 py-3">Actions</th>
                                 </tr>
@@ -588,7 +596,7 @@
                 let rec = recSnap.exists() ? recSnap.data() : {
                     empEmail: this.currentUser.email, empName: this.currentUser.name, dateStr: todayStr,
                     timeIn: null, breakIn: null, breakOut: null, timeOut: null,
-                    offsetIn: null, offsetOut: null,
+                    otIn: null, otOut: null, offsetIn: null, offsetOut: null,
                     workHours: 0, otHours: 0, offsetHours: 0, disconnectedHours: 0, 
                     notes: "", otStatus: "N/A", offsetStatus: "N/A", leaveStatus: "N/A"
                 };
@@ -619,21 +627,31 @@
                             
                             rec.timeOut = currentTime;
                             
-                            // Automated Logic Engine
                             let total = this.diffHours(rec.timeIn, rec.timeOut);
                             if(rec.breakIn && rec.breakOut) total -= this.diffHours(rec.breakIn, rec.breakOut);
                             total -= (rec.disconnectedHours || 0); // Deduct disconnects
                             
                             rec.workHours = total > 0 ? total : 0;
-                            rec.otHours = rec.workHours - 9; // Automatic calculation
+                            // Negative OT represents a deficit
+                            rec.otHours = rec.workHours - 9; 
                             
-                            if (rec.otHours > 0) {
-                                rec.otStatus = "PENDING";
-                                this.showAlert("Success", `Time Out recorded. Work Hours: ${rec.workHours.toFixed(2)}. Overtime (${rec.otHours.toFixed(2)} hrs) pending approval.`);
-                            } else {
-                                rec.otStatus = "N/A";
-                                this.showAlert("Success", `Time Out recorded. Work Hours: ${rec.workHours.toFixed(2)}. Deficit: ${rec.otHours.toFixed(2)} hrs.`);
-                            }
+                            this.showAlert("Success", `Time Out recorded. Regular Shift Hours: ${rec.workHours.toFixed(2)}`);
+                            break;
+                        case 'OvertimeIn':
+                            if (!rec.timeOut) return this.showAlert("Error", "You must Time Out of regular shift before starting Overtime.", true);
+                            if (rec.otIn) return this.showAlert("Notice", "Overtime In is already recorded.");
+                            rec.otIn = currentTime;
+                            this.showAlert("Success", `Overtime In recorded at ${currentTime}.`);
+                            break;
+                        case 'OvertimeOut':
+                            if (!rec.otIn) return this.showAlert("Error", "You must record Overtime In first.", true);
+                            if (rec.otOut) return this.showAlert("Notice", "Overtime Out is already recorded.");
+                            rec.otOut = currentTime;
+                            
+                            // Only overwrite the automated otHours if they explicitly logged manual OT
+                            rec.otHours = this.diffHours(rec.otIn, rec.otOut);
+                            rec.otStatus = "PENDING";
+                            this.showAlert("Success", `Overtime Out recorded. Submitted for admin approval.`);
                             break;
                     }
                     await setDoc(recRef, rec);
@@ -673,14 +691,16 @@
                     if(rec.breakIn && rec.breakOut) total -= this.diffHours(rec.breakIn, rec.breakOut);
                     total -= rec.disconnectedHours;
                     rec.workHours = total > 0 ? total : 0;
-                    rec.otHours = rec.workHours - 9;
-                    if (rec.otHours > 0 && rec.otStatus === 'N/A') rec.otStatus = 'PENDING';
-                    if (rec.otHours <= 0) rec.otStatus = 'N/A';
+                    
+                    // Update deficit if no manual OT was logged
+                    if(!rec.otIn && !rec.otOut) {
+                        rec.otHours = rec.workHours - 9;
+                    }
                 }
 
                 await setDoc(recRef, rec);
                 this.closeModal('modal-form');
-                this.showAlert("Disconnection Logged", `Time lost (${hrs} hrs) saved. Calculations updated.`);
+                this.showAlert("Disconnection Logged", `Time lost (${hrs.toFixed(2)} hrs) saved. Calculations updated.`);
             },
 
             async processOffsetButton() {
@@ -838,6 +858,8 @@
                 let tOut = document.getElementById('edit-tOut').value || null;
                 let bIn = document.getElementById('edit-bIn').value || null;
                 let bOut = document.getElementById('edit-bOut').value || null;
+                let oIn = document.getElementById('edit-otIn').value || null;
+                let oOut = document.getElementById('edit-otOut').value || null;
                 
                 let workHours = 0;
                 if(tIn !== 'LEAVE') {
@@ -849,19 +871,28 @@
                     workHours = rec.workHours;
                 }
 
-                let otHours = tIn !== 'LEAVE' ? (workHours - 9) : 0;
+                let otHours = 0;
                 let otStatus = rec.otStatus;
-                if (otHours > 0 && otStatus === 'N/A') otStatus = 'PENDING';
-                if (otHours <= 0) otStatus = 'N/A';
+                
+                // If they manually logged OT, use that. Otherwise use the deficit calculation.
+                if (oIn && oOut) {
+                    otHours = this.diffHours(oIn, oOut);
+                    if (otStatus === 'N/A') otStatus = 'PENDING';
+                } else if (tIn !== 'LEAVE') {
+                    otHours = workHours - 9;
+                    if (otHours > 0 && otStatus === 'N/A') otStatus = 'PENDING';
+                    if (otHours <= 0) otStatus = 'N/A';
+                }
 
                 try {
                     await updateDoc(doc(db, "timesheet_records", docId), {
                         timeIn: tIn, timeOut: tOut, breakIn: bIn, breakOut: bOut,
+                        otIn: oIn, otOut: oOut,
                         notes: document.getElementById('edit-notes').value || '',
                         workHours: workHours, otHours: otHours, otStatus: otStatus
                     });
                     this.closeModal('modal-form');
-                    this.showAlert("Success", "Record updated and automation recalculated.");
+                    this.showAlert("Success", "Record updated and calculations adjusted.");
                 } catch(e) {
                     this.showAlert("Database Error", "Failed to save edit.", true);
                 }
@@ -943,6 +974,8 @@
                 document.getElementById('btn-action-BreakIn').onclick = () => this.logAction('BreakIn');
                 document.getElementById('btn-action-BreakOut').onclick = () => this.logAction('BreakOut');
                 document.getElementById('btn-action-TimeOut').onclick = () => this.logAction('TimeOut');
+                document.getElementById('btn-action-OvertimeIn').onclick = () => this.logAction('OvertimeIn');
+                document.getElementById('btn-action-OvertimeOut').onclick = () => this.logAction('OvertimeOut');
                 
                 document.getElementById('btn-action-Disconnect').onclick = () => {
                     this.showGenericModal("Log Disconnection", `
@@ -1025,6 +1058,8 @@
                             <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Time Out</label><input type="text" id="edit-tOut" value="${rec.timeOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
                             <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break In</label><input type="text" id="edit-bIn" value="${rec.breakIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
                             <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break Out</label><input type="text" id="edit-bOut" value="${rec.breakOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT In</label><input type="text" id="edit-otIn" value="${rec.otIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT Out</label><input type="text" id="edit-otOut" value="${rec.otOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
                             <div class="col-span-2"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Notes</label><input type="text" id="edit-notes" value="${rec.notes || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
                         </div>
                     `, () => this.submitAdminEdit(id));
@@ -1089,7 +1124,12 @@
                 
                 let totalHrs = 0; let otHrs = 0; let leaves = 0;
                 thisWeek.forEach(r => {
-                    totalHrs += r.workHours || 0;
+                    let adjustedWorkHours = r.workHours || 0;
+                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
+                        adjustedWorkHours += r.offsetHours;
+                    }
+                    totalHrs += adjustedWorkHours;
+
                     if(r.otStatus === 'APPROVED') otHrs += r.otHours || 0;
                     if(r.leaveStatus === 'APPROVED' || r.timeIn === 'LEAVE') leaves++;
                 });
@@ -1115,6 +1155,11 @@
                     let b2 = r.offsetStatus === 'PENDING' ? '<span class="bg-indigo-100 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Pen</span> ' : r.offsetStatus === 'APPROVED' ? '<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Aprv</span> ' : '';
                     let b3 = r.leaveStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Pen</span> ' : r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Aprv</span> ' : '';
 
+                    let displayWorkHours = r.workHours || 0;
+                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
+                        displayWorkHours += r.offsetHours;
+                    }
+
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition";
                     tr.innerHTML = `
@@ -1122,9 +1167,10 @@
                         <td class="px-4 py-3">${r.timeIn || '-'}</td>
                         <td class="px-4 py-3 text-slate-500">${r.breakIn || '-'} / ${r.breakOut || '-'}</td>
                         <td class="px-4 py-3">${r.timeOut || '-'}</td>
-                        <td class="px-4 py-3 font-semibold ${r.otHours > 0 ? 'text-purple-600' : (r.otHours < 0 ? 'text-rose-600' : 'text-slate-500')}">${r.otHours.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-indigo-600 font-medium">${r.offsetIn || '-'} / ${r.offsetOut || '-'} <br> <span class="text-xs text-slate-500">(${r.offsetHours ? r.offsetHours.toFixed(2) : '0.00'})</span></td>
-                        <td class="px-4 py-3 font-bold">${r.workHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-purple-600 font-medium">${r.otIn || '-'} / ${r.otOut || '-'}</td>
+                        <td class="px-4 py-3 text-indigo-600 font-medium">${r.offsetIn || '-'} / ${r.offsetOut || '-'}</td>
+                        <td class="px-4 py-3 font-bold">${displayWorkHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 font-bold ${r.otHours > 0 ? 'text-purple-700' : (r.otHours < 0 ? 'text-rose-600' : 'text-slate-500')}">${r.otHours.toFixed(2)}</td>
                         <td class="px-4 py-3 text-xs text-slate-600 truncate max-w-[200px]" title="${r.notes}">${r.notes || ''} <br> ${b1}${b2}${b3}</td>
                     `;
                     tbody.appendChild(tr);
@@ -1224,6 +1270,11 @@
                                  r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Aprv</span>' :
                                  r.leaveStatus === 'DISAPPROVED' ? '<span class="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Deny</span>' : '';
 
+                    let displayWorkHours = r.workHours || 0;
+                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
+                        displayWorkHours += r.offsetHours;
+                    }
+
                     const tr = document.createElement('tr');
                     tr.className = "hover:bg-slate-50 transition";
                     tr.innerHTML = `
@@ -1231,7 +1282,7 @@
                         <td class="px-4 py-3 text-slate-600">${r.dateStr}</td>
                         <td class="px-4 py-3">${r.timeIn || '-'}</td>
                         <td class="px-4 py-3">${r.timeOut || '-'}</td>
-                        <td class="px-4 py-3 font-semibold text-slate-800">${r.workHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 font-semibold text-slate-800">${displayWorkHours.toFixed(2)}</td>
                         <td class="px-4 py-3 font-semibold ${r.otHours > 0 ? 'text-purple-700' : (r.otHours < 0 ? 'text-rose-600' : 'text-slate-500')}">${r.otHours.toFixed(2)}</td>
                         <td class="px-4 py-3 font-medium text-indigo-600">${r.offsetHours ? r.offsetHours.toFixed(2) : '-'}</td>
                         <td class="px-4 py-3 text-xs text-slate-500 truncate max-w-[150px]" title="${r.notes}">${r.notes || '-'} <br> ${otBadge} ${offBadge} ${leaveBadge}</td>
@@ -1265,13 +1316,18 @@
                 const records = exportAll ? [...this.records].sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr)) : this.getFilteredRecords();
                 if (records.length === 0) return this.showAlert("Notice", "No records found to export.");
 
-                let csvContent = "Employee Email,Date,Time In,Break In,Break Out,Time Out,Work Hours,Auto OT/Deficit,Manual Offset Hours,Notes,OT Status,Offset Status,Leave Status\n";
+                let csvContent = "Employee Email,Date,Time In,Break In,Break Out,Time Out,Work Hours (Inc Offset),Auto OT/Deficit,Manual Offset Hours,Notes,OT Status,Offset Status,Leave Status\n";
 
                 records.forEach(r => {
+                    let exportWorkHours = r.workHours || 0;
+                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
+                        exportWorkHours += r.offsetHours;
+                    }
+
                     const row = [
                         `"${r.empEmail}"`, r.dateStr,
                         r.timeIn || '', r.breakIn || '', r.breakOut || '', r.timeOut || '',
-                        r.workHours.toFixed(2), r.otHours.toFixed(2), r.offsetHours ? r.offsetHours.toFixed(2) : 0,
+                        exportWorkHours.toFixed(2), r.otHours.toFixed(2), r.offsetHours ? r.offsetHours.toFixed(2) : 0,
                         `"${r.notes || ''}"`, r.otStatus, r.offsetStatus || 'N/A', r.leaveStatus || 'N/A'
                     ];
                     csvContent += row.join(',') + "\n";
