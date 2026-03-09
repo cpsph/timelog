@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corporate Timesheet System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .fade-in { animation: fadeIn 0.2s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .tab-active { background-color: white; color: #1d4ed8; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .tab-inactive { background-color: transparent; color: #475569; }
+        .tab-inactive:hover { color: #1e293b; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Top Navigation -->
+    <nav class="bg-blue-900 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-3">
+                    <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="font-bold text-xl tracking-tight">TimeSync Cloud</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="live-clock" class="text-sm font-medium bg-blue-800 px-3 py-1 rounded-full hidden sm:block">
+                        Syncing Time...
+                    </div>
+                    <div id="user-profile" class="hidden items-center space-x-3">
+                        <span id="nav-user-name" class="text-sm font-medium mr-2"></span>
+                        <button onclick="sys.showChangePasswordModal()" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition shadow-sm">Password</button>
+                        <button id="btn-signout" class="text-sm bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded transition shadow-sm">Sign Out</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow flex items-center justify-center p-4">
+        
+        <!-- INITIAL LOADING SCREEN -->
+        <div id="view-loading" class="flex flex-col items-center justify-center space-y-4">
+            <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <p class="text-slate-500 font-medium">Connecting to Cloud Database...</p>
+        </div>
+
+        <!-- LOGIN SCREEN (LOCAL PASSWORDS) -->
+        <div id="view-login" class="hidden bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-slate-200 fade-in">
+            <h2 class="text-2xl font-bold text-center text-slate-800 mb-6">System Sign In</h2>
+            <p class="text-sm text-slate-500 mb-6 text-center">Use your corporate email and password to access the timesheet.<br>
+                <span class="text-xs block mt-2 p-3 bg-blue-50 rounded text-blue-800 text-left leading-relaxed border border-blue-100">
+                    <strong>Admin:</strong> kate.catapang@coretechintl.com<br>
+                    <strong>Pass:</strong> admin123
+                </span>
+            </p>
+            
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Corporate Email</label>
+                    <input type="email" id="login-email" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="name@coretechintl.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1 mt-3">Password</label>
+                    <input type="password" id="login-password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="••••••••">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow transition flex items-center justify-center gap-2 mt-4">
+                    Secure Sign In
+                </button>
+            </form>
+        </div>
+
+        <!-- DASHBOARD SCREEN -->
+        <div id="view-dashboard" class="hidden w-full max-w-7xl flex-col space-y-6 fade-in">
+            
+            <!-- Dashboard Header & Tabs -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800">Welcome, <span id="dash-user-name" class="text-blue-600"></span></h1>
+                    <p class="text-sm text-slate-500 mt-1" id="dash-date-display"></p>
+                </div>
+                <!-- Admin Only Tab Switcher -->
+                <div id="admin-controls" class="hidden flex flex-wrap gap-2 sm:gap-1 bg-slate-100 p-1.5 rounded-lg border border-slate-200">
+                    <button id="tab-btn-personal" class="tab-active px-4 py-2 text-sm font-medium rounded-md transition">My Timesheet</button>
+                    <button id="tab-btn-admin" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition relative">
+                        Approvals Queue
+                        <span id="pending-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full hidden">0</span>
+                    </button>
+                    <button id="tab-btn-all-records" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition">All Records & Export</button>
+                    <button id="tab-btn-manage-users" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition">Manage Users</button>
+                </div>
+            </div>
+
+            <!-- PERSONAL TIMESHEET TAB -->
+            <div id="tab-content-personal" class="space-y-6 fade-in">
+                
+                <!-- WEEKLY SUMMARY CARDS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                        <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Work Hours This Week</p>
+                            <h4 class="text-2xl font-bold text-slate-800" id="sum-hrs">0.00</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                        <div class="p-3 bg-purple-100 text-purple-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Approved OT This Week</p>
+                            <h4 class="text-2xl font-bold text-slate-800" id="sum-ot">0.00</h4>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
+                        <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></div>
+                        <div>
+                            <p class="text-sm font-medium text-slate-500">Leaves Taken This Week</p>
+                            <h4 class="text-2xl font-bold text-slate-800" id="sum-leaves">0</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <button id="btn-action-TimeIn" class="p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition group flex flex-col items-center justify-center text-green-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+                        <span class="font-bold text-sm">Time In</span>
+                    </button>
+                    <button id="btn-action-BreakIn" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition group flex flex-col items-center justify-center text-orange-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="font-bold text-sm">Break In</span>
+                    </button>
+                    <button id="btn-action-BreakOut" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition group flex flex-col items-center justify-center text-orange-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span class="font-bold text-sm">Break Out</span>
+                    </button>
+                    <button id="btn-action-TimeOut" class="p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition group flex flex-col items-center justify-center text-red-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        <span class="font-bold text-sm">Time Out</span>
+                    </button>
+                    
+                    <button id="btn-action-OvertimeIn" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        <span class="font-bold text-sm">Overtime In</span>
+                    </button>
+                    <button id="btn-action-OvertimeOut" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+                        <span class="font-bold text-sm">Overtime Out</span>
+                    </button>
+                    <button id="btn-action-Disconnect" class="p-4 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 transition group flex flex-col items-center justify-center text-slate-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path></svg>
+                        <span class="font-bold text-sm">Log Disconnect</span>
+                    </button>
+                    <button id="btn-action-Offset" class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition group flex flex-col items-center justify-center text-indigo-700">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <span class="font-bold text-center leading-tight text-sm">Offset In/Out</span>
+                    </button>
+                    <button id="btn-action-Leave" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition group flex flex-col items-center justify-center text-emerald-700 col-span-2 md:col-span-1">
+                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span class="font-bold text-sm">File Leave</span>
+                    </button>
+                </div>
+
+                <!-- Timesheet Record Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                        <h3 class="font-bold text-slate-800">My Timesheet Record</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3">Date</th>
+                                    <th class="px-4 py-3">Time In</th>
+                                    <th class="px-4 py-3">Breaks (In-Out)</th>
+                                    <th class="px-4 py-3">Time Out</th>
+                                    <th class="px-4 py-3 text-purple-600">OT (In-Out)</th>
+                                    <th class="px-4 py-3 text-indigo-600">Offset (In-Out)</th>
+                                    <th class="px-4 py-3">Work Hrs</th>
+                                    <th class="px-4 py-3">OT / Offset Hrs</th>
+                                    <th class="px-4 py-3">Notes / Approvals</th>
+                                </tr>
+                            </thead>
+                            <tbody id="timesheet-body" class="divide-y divide-slate-200">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN TAB (PENDING APPROVALS) -->
+            <div id="tab-content-admin" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-amber-50 flex justify-between items-center">
+                        <h3 class="font-bold text-amber-800">Pending Approvals Queue</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-3">Employee Email</th>
+                                    <th class="px-6 py-3">Date</th>
+                                    <th class="px-6 py-3">Request Type</th>
+                                    <th class="px-6 py-3">Details / Hours</th>
+                                    <th class="px-6 py-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-body" class="divide-y divide-slate-200">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ADMIN TAB (ALL RECORDS & EXPORT) -->
+            <div id="tab-content-all-records" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-emerald-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <h3 class="font-bold text-emerald-800">Company Timesheet Database</h3>
+                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                            <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded border border-slate-300">
+                                <label class="text-slate-500 font-medium">From:</label>
+                                <input type="date" id="filter-start" class="outline-none text-slate-800">
+                            </div>
+                            <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded border border-slate-300">
+                                <label class="text-slate-500 font-medium">To:</label>
+                                <input type="date" id="filter-end" class="outline-none text-slate-800">
+                            </div>
+                            <button id="btn-filter-records" class="bg-emerald-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-emerald-700 transition font-medium">Filter</button>
+                            <button id="btn-export-csv" class="bg-slate-800 text-white px-4 py-1.5 rounded shadow-sm hover:bg-slate-900 transition flex items-center font-medium">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto min-h-[400px]">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3">Employee Email</th>
+                                    <th class="px-4 py-3">Date</th>
+                                    <th class="px-4 py-3">Time In</th>
+                                    <th class="px-4 py-3">Time Out</th>
+                                    <th class="px-4 py-3">Work Hrs</th>
+                                    <th class="px-4 py-3">OT Hrs</th>
+                                    <th class="px-4 py-3">Status / Notes</th>
+                                    <th class="px-4 py-3">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="all-records-body" class="divide-y divide-slate-200">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Controls -->
+                    <div class="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+                        <span class="text-sm text-slate-600" id="pagination-info">Showing 0 of 0</span>
+                        <div class="space-x-2">
+                            <button id="btn-prev-page" class="px-3 py-1 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50 text-sm font-medium text-slate-700">Previous</button>
+                            <button id="btn-next-page" class="px-3 py-1 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50 text-sm font-medium text-slate-700">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN TAB (MANAGE USERS) -->
+            <div id="tab-content-manage-users" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-blue-50 flex justify-between items-center">
+                        <h3 class="font-bold text-blue-800">Manage Authorized Users</h3>
+                        <button id="btn-show-add-user" class="bg-blue-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-blue-700 transition font-medium flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Member
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="px-6 py-3">Name</th>
+                                    <th class="px-6 py-3">Email Address</th>
+                                    <th class="px-6 py-3">Role</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manage-users-body" class="divide-y divide-slate-200">
+                                <!-- JS Populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Custom Modal Framework -->
+    <div id="modal-alert" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
+            <h3 id="modal-alert-title" class="text-lg font-bold mb-2">Notice</h3>
+            <p id="modal-alert-message" class="text-slate-600 mb-6 text-sm"></p>
+            <div class="flex justify-end">
+                <button id="btn-close-alert" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Multi-purpose Form Modal -->
+    <div id="modal-form" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 transform transition-all max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-form-title" class="text-lg font-bold mb-4 text-slate-800 border-b pb-2">Form</h3>
+            <div id="modal-form-content" class="mb-6 space-y-4">
+                <!-- Injected via JS -->
+            </div>
+            <div class="flex justify-end space-x-3 border-t pt-4">
+                <button id="btn-close-form" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium">Cancel</button>
+                <button id="modal-form-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Modular SDK Integration -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // User Provided Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAqQmlp8q-OXRLIL2PFMojzUBWYW26xA4",
+            authDomain: "cpstimelog.firebaseapp.com",
+            projectId: "cpstimelog",
+            storageBucket: "cpstimelog.firebasestorage.app",
+            messagingSenderId: "863286709862",
+            appId: "1:863286709862:web:a49f1bdef2f5674faca7a7",
+            measurementId: "G-PJEZBE0CNS"
+        };
+
+        // Initialize Firebase
+        let app, db, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (e) {
+            console.error("Firebase initialization failed.", e);
+        }
+
+        // ==========================================
+        // APPLICATION STATE & LOGIC
+        // ==========================================
+        const sys = {
+            currentUser: null,
+            users: [],
+            records: [],
+            timeOffset: 0,
+            currentPage: 1,
+            daysPerPage: 10,
+            unsubs: [],
+
+            async init() {
+                await this.syncNetworkTime();
+                this.updateClock();
+                setInterval(() => this.updateClock(), 1000);
+
+                this.bindUIEvents();
+                
+                // Wait for anonymous auth before checking initial admin
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        await this.checkInitialAdmin();
+                        this.verifySession();
+                    } else {
+                        // Sign in anonymously if not already
+                        try {
+                            await signInAnonymously(auth);
+                        } catch (error) {
+                            console.error("Anonymous auth failed", error);
+                        }
+                    }
+                });
+            },
+
+            async checkInitialAdmin() {
+                try {
+                    const adminRef = doc(db, "timesheet_users", "kate.catapang@coretechintl.com");
+                    const adminDoc = await getDoc(adminRef);
+                    if (!adminDoc.exists()) {
+                        await setDoc(adminRef, {
+                            name: "Kate Catapang",
+                            email: "kate.catapang@coretechintl.com",
+                            password: "admin123",
+                            isAdmin: true
+                        });
+                    }
+                } catch(e) {
+                    console.error("Failed to check/create initial admin. Check Firestore rules.", e);
+                }
+            },
+
+            async verifySession() {
+                const savedSession = localStorage.getItem('timesheet_active_session');
+                if (savedSession) {
+                    const sessionData = JSON.parse(savedSession);
+                    try {
+                        const userDoc = await getDoc(doc(db, "timesheet_users", sessionData.email));
+                        if(userDoc.exists()) {
+                            this.currentUser = userDoc.data();
+                            this.setupRealtimeListeners();
+                            this.showDashboard();
+                            return;
+                        }
+                    } catch(e) {
+                        console.error("Session verification failed.", e);
+                    }
+                }
+                this.showLoginScreen();
+            },
+
+            async handleLogin(e) {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value.trim().toLowerCase();
+                const pass = document.getElementById('login-password').value;
+
+                try {
+                    const userDoc = await getDoc(doc(db, "timesheet_users", email));
+                    if(userDoc.exists()) {
+                        const userData = userDoc.data();
+                        if(userData.password === pass) {
+                            localStorage.setItem('timesheet_active_session', JSON.stringify({ email: email }));
+                            this.currentUser = userData;
+                            this.setupRealtimeListeners();
+                            this.showDashboard();
+                        } else {
+                            this.showAlert("Authentication Failed", "Incorrect password provided.", true);
+                        }
+                    } else {
+                        this.showAlert("Authentication Failed", "Email not found in authorized users list.", true);
+                    }
+                } catch(err) {
+                    this.showAlert("Database Error", "Failed to connect to database. Check your Firestore Security Rules.", true);
+                    console.error(err);
+                }
+            },
+
+            showLoginScreen() {
+                this.currentUser = null;
+                this.clearListeners();
+                document.getElementById('view-loading').classList.add('hidden');
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('user-profile').classList.remove('flex');
+                document.getElementById('user-profile').classList.add('hidden');
+                document.getElementById('view-login').classList.remove('hidden');
+                document.getElementById('login-password').value = '';
+            },
+
+            showDashboard() {
+                document.getElementById('view-login').classList.add('hidden');
+                document.getElementById('view-loading').classList.add('hidden');
+                document.getElementById('view-dashboard').classList.remove('hidden');
+                document.getElementById('view-dashboard').classList.add('flex');
+                document.getElementById('user-profile').classList.remove('hidden');
+                document.getElementById('user-profile').classList.add('flex');
+                document.getElementById('nav-user-name').innerText = this.currentUser.name;
+                document.getElementById('dash-user-name').innerText = this.currentUser.name;
+                
+                if (this.currentUser.isAdmin) {
+                    document.getElementById('admin-controls').classList.remove('hidden');
+                    document.getElementById('admin-controls').classList.add('flex');
+                } else {
+                    document.getElementById('admin-controls').classList.add('hidden');
+                    document.getElementById('admin-controls').classList.remove('flex');
+                }
+                
+                this.switchTab('personal');
+            },
+
+            async syncNetworkTime() {
+                try {
+                    const res = await fetch('http://worldtimeapi.org/api/timezone/Asia/Manila');
+                    if(res.ok) {
+                        const data = await res.json();
+                        const networkTime = new Date(data.datetime).getTime();
+                        const localTime = Date.now();
+                        this.timeOffset = networkTime - localTime;
+                    }
+                } catch(e) {
+                    console.warn("Failed to reach WorldTimeAPI. Falling back to local clock.");
+                }
+            },
+
+            getRealTime() {
+                return new Date(Date.now() + this.timeOffset);
+            },
+
+            // --- REALTIME DATABASE LISTENERS ---
+            setupRealtimeListeners() {
+                this.clearListeners();
+                
+                const qRecords = query(collection(db, "timesheet_records"));
+                const unsubRecords = onSnapshot(qRecords, (snapshot) => {
+                    this.records = [];
+                    snapshot.forEach(doc => this.records.push({ id: doc.id, ...doc.data() }));
+                    this.renderAllDashboards();
+                });
+                this.unsubs.push(unsubRecords);
+
+                const unsubUsers = onSnapshot(collection(db, "timesheet_users"), (snapshot) => {
+                    this.users = [];
+                    snapshot.forEach(doc => this.users.push(doc.data()));
+                    if(this.currentUser?.isAdmin) this.renderManageUsersTable();
+                });
+                this.unsubs.push(unsubUsers);
+            },
+
+            clearListeners() {
+                this.unsubs.forEach(unsub => unsub());
+                this.unsubs = [];
+            },
+
+            renderAllDashboards() {
+                if(!this.currentUser) return;
+                this.renderTimesheet();
+                this.renderWeeklySummary();
+                if(this.currentUser.isAdmin) {
+                    this.renderAdminTable();
+                    this.renderAllRecordsTable();
+                    this.updatePendingBadge();
+                }
+            },
+
+            // --- CORE LOGGING MACROS (CLOUD ENABLED) ---
+            async logAction(type) {
+                if(!this.currentUser) return;
+                const todayStr = this.formatDate(this.getRealTime());
+                const docId = `${this.currentUser.email}_${todayStr}`;
+                const currentTime = this.formatTime(this.getRealTime());
+                
+                const recRef = doc(db, "timesheet_records", docId);
+                const recSnap = await getDoc(recRef);
+                
+                let rec = recSnap.exists() ? recSnap.data() : {
+                    empEmail: this.currentUser.email, empName: this.currentUser.name, dateStr: todayStr,
+                    timeIn: null, breakIn: null, breakOut: null, timeOut: null,
+                    otIn: null, otOut: null, offsetIn: null, offsetOut: null,
+                    workHours: 0, otHours: 0, offsetHours: 0, disconnectedHours: 0, 
+                    notes: "", otStatus: "N/A", offsetStatus: "N/A", leaveStatus: "N/A"
+                };
+
+                try {
+                    switch(type) {
+                        case 'TimeIn':
+                            if (rec.timeIn) return this.showAlert("Notice", `Already Timed In today at ${rec.timeIn}.`);
+                            rec.timeIn = currentTime;
+                            this.showAlert("Success", `Time In recorded securely at ${currentTime}.`);
+                            break;
+                        case 'BreakIn':
+                            if (!rec.timeIn) return this.showAlert("Error", "You must Time In first.", true);
+                            if (rec.breakIn) return this.showAlert("Notice", "Break Time In is already recorded.");
+                            rec.breakIn = currentTime;
+                            this.showAlert("Success", `Break In recorded at ${currentTime}.`);
+                            break;
+                        case 'BreakOut':
+                            if (!rec.breakIn) return this.showAlert("Error", "You must Break In first.", true);
+                            if (rec.breakOut) return this.showAlert("Notice", "Break Time Out is already recorded.");
+                            rec.breakOut = currentTime;
+                            this.showAlert("Success", `Break Out recorded at ${currentTime}.`);
+                            break;
+                        case 'TimeOut':
+                            if (!rec.timeIn) return this.showAlert("Error", "You must Time In first.", true);
+                            if (rec.timeOut) return this.showAlert("Notice", "You have already Timed Out.");
+                            if (rec.breakIn && !rec.breakOut) return this.showAlert("Error", "Please record Break Out before Timing Out.", true);
+                            
+                            rec.timeOut = currentTime;
+                            let total = this.diffHours(rec.timeIn, rec.timeOut);
+                            if(rec.breakIn && rec.breakOut) total -= this.diffHours(rec.breakIn, rec.breakOut);
+                            rec.workHours = total > 0 ? total : 0;
+                            this.showAlert("Success", `Time Out recorded. Regular Shift Hours: ${rec.workHours}`);
+                            break;
+                        case 'OvertimeIn':
+                            if (!rec.timeOut) return this.showAlert("Error", "You must Time Out of regular shift before starting Overtime.", true);
+                            if (rec.otIn) return this.showAlert("Notice", "Overtime In is already recorded.");
+                            rec.otIn = currentTime;
+                            this.showAlert("Success", `Overtime In recorded at ${currentTime}.`);
+                            break;
+                        case 'OvertimeOut':
+                            if (!rec.otIn) return this.showAlert("Error", "You must record Overtime In first.", true);
+                            if (rec.otOut) return this.showAlert("Notice", "Overtime Out is already recorded.");
+                            rec.otOut = currentTime;
+                            rec.otHours = this.diffHours(rec.otIn, rec.otOut);
+                            rec.otStatus = "PENDING";
+                            this.showAlert("Success", `Overtime Out recorded. Submitted for admin approval.`);
+                            break;
+                    }
+                    await setDoc(recRef, rec);
+                } catch(err) {
+                    this.showAlert("Database Error", "Failed to save log to cloud.", true);
+                    console.error(err);
+                }
+            },
+
+            // --- COMPLEX FORMS (DISCONNECT/OFFSET/LEAVE) ---
+            async submitDisconnect() {
+                const tInStr = document.getElementById('disc-time').value;
+                if(!tInStr) return this.showAlert("Error", "Please provide the disconnected time.", true);
+                
+                const todayStr = this.formatDate(this.getRealTime());
+                const docId = `${this.currentUser.email}_${todayStr}`;
+                const recRef = doc(db, "timesheet_records", docId);
+                const recSnap = await getDoc(recRef);
+                
+                if(!recSnap.exists() || !recSnap.data().timeIn) return this.showAlert("Error", "You must Time In before recording disconnection.", true);
+                
+                let rec = recSnap.data();
+                if (rec.notes.includes("[DISCONNECTED]")) return this.showAlert("Notice", "A disconnection is already recorded for today.");
+
+                const dParts = tInStr.split(':');
+                const d = this.getRealTime(); d.setHours(dParts[0], dParts[1], 0);
+                const formattedIn = this.formatTime(d);
+                const formattedOut = this.formatTime(this.getRealTime());
+                const reason = document.getElementById('disc-reason').value;
+                const hrs = this.diffHours(formattedIn, formattedOut);
+
+                rec.disconnectedHours = hrs;
+                rec.notes = `[DISCONNECTED] ${formattedIn} to ${formattedOut} - ${reason}`;
+                
+                await setDoc(recRef, rec);
+                this.closeModal('modal-form');
+                this.showAlert("Disconnection Logged", `Time lost (${hrs} hrs) saved. Offset this another day.`);
+            },
+
+            async processOffsetButton() {
+                const todayStr = this.formatDate(this.getRealTime());
+                const docId = `${this.currentUser.email}_${todayStr}`;
+                const recRef = doc(db, "timesheet_records", docId);
+                const recSnap = await getDoc(recRef);
+                
+                if(!recSnap.exists() || !recSnap.data().timeIn) return this.showAlert("Error", "You must Time In before offsetting.", true);
+                let rec = recSnap.data();
+
+                if (rec.offsetIn && !rec.offsetOut) {
+                    rec.offsetOut = this.formatTime(this.getRealTime());
+                    rec.offsetHours = this.diffHours(rec.offsetIn, rec.offsetOut);
+                    rec.offsetStatus = "PENDING";
+                    await setDoc(recRef, rec);
+                    return this.showAlert("Success", "Offset Out recorded. Submitted for admin approval.");
+                }
+                if (rec.offsetOut) return this.showAlert("Notice", "Offset is already complete for today.");
+
+                const discRecords = this.records.filter(r => r.empEmail === this.currentUser.email && (r.notes || "").includes("[DISCONNECTED]"));
+                if (discRecords.length === 0) return this.showAlert("Notice", "No recorded disconnected days to offset.");
+
+                let options = discRecords.map(r => `<option value="${r.dateStr}">${r.dateStr} (${r.disconnectedHours} hrs lost)</option>`).join('');
+                
+                this.showGenericModal("Start Offset Time", `
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Select Disconnected Date to Offset</label>
+                        <select id="offset-date" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">${options}</select>
+                    </div>
+                `, async () => {
+                    const dateSelected = document.getElementById('offset-date').value;
+                    rec.offsetIn = this.formatTime(this.getRealTime());
+                    rec.notes = (rec.notes ? rec.notes + " | " : "") + `TO OFFSET ${dateSelected}`;
+                    await setDoc(recRef, rec);
+                    this.closeModal('modal-form');
+                    this.showAlert("Offset In", "Offset In recorded. Don't forget to click Offset Out.");
+                });
+            },
+
+            async submitLeave() {
+                const dateStr = document.getElementById('leave-date').value;
+                const type = document.getElementById('leave-type').value;
+                const reason = document.getElementById('leave-reason').value.trim();
+                
+                if(!dateStr) return this.showAlert("Error", "Please select a date.", true);
+                if(!reason) return this.showAlert("Error", "Please provide a reason for your leave.", true);
+                
+                const docId = `${this.currentUser.email}_${dateStr}`;
+                const recRef = doc(db, "timesheet_records", docId);
+                const recSnap = await getDoc(recRef);
+
+                if(recSnap.exists()) return this.showAlert("Error", "You already have a log/record for this date.", true);
+
+                await setDoc(recRef, {
+                    empEmail: this.currentUser.email, empName: this.currentUser.name, dateStr: dateStr,
+                    timeIn: "LEAVE", breakIn: "-", breakOut: "-", timeOut: "LEAVE",
+                    otIn: null, otOut: null, offsetIn: null, offsetOut: null,
+                    workHours: 8, otHours: 0, offsetHours: 0, disconnectedHours: 0, 
+                    notes: `[LEAVE] ${type} - ${reason}`, otStatus: "N/A", offsetStatus: "N/A", leaveStatus: "PENDING"
+                });
+                
+                this.closeModal('modal-form');
+                this.showAlert("Leave Filed", "Your leave request has been submitted to the admin.");
+            },
+
+            // --- ADMIN ACTIONS ---
+            async processApproval(id, keyToUpdate, action) {
+                try {
+                    const status = action === 'approve' ? 'APPROVED' : 'DISAPPROVED';
+                    const updateObj = {};
+                    updateObj[keyToUpdate] = status;
+                    
+                    if(keyToUpdate === 'leaveStatus' && action === 'disapprove') {
+                        updateObj.workHours = 0;
+                    }
+                    await updateDoc(doc(db, "timesheet_records", id), updateObj);
+                } catch(e) {
+                    this.showAlert("Database Error", "Failed to update record.", true);
+                }
+            },
+
+            async addNewUser() {
+                const name = document.getElementById('new-user-name').value.trim();
+                const email = document.getElementById('new-user-email').value.trim().toLowerCase();
+                const role = document.getElementById('new-user-role').value;
+
+                if(!name || !email) return this.showAlert("Error", "Please fill out name and email.", true);
+                
+                try {
+                    await setDoc(doc(db, "timesheet_users", email), {
+                        name: name, email: email, password: "pass123", isAdmin: role === 'admin'
+                    });
+                    this.closeModal('modal-form');
+                    this.showAlert("Success", `User ${name} added to authorized list.`);
+                } catch(e) {
+                    this.showAlert("Database Error", "Failed to add user.", true);
+                }
+            },
+
+            async submitAdminEdit(docId) {
+                const rec = this.records.find(r => r.id === docId);
+                let tIn = document.getElementById('edit-tIn').value || null;
+                let tOut = document.getElementById('edit-tOut').value || null;
+                let bIn = document.getElementById('edit-bIn').value || null;
+                let bOut = document.getElementById('edit-bOut').value || null;
+                let oIn = document.getElementById('edit-otIn').value || null;
+                let oOut = document.getElementById('edit-otOut').value || null;
+                
+                let workHours = 0;
+                if(tIn !== 'LEAVE') {
+                    let total = this.diffHours(tIn, tOut);
+                    if(bIn && bOut) total -= this.diffHours(bIn, bOut);
+                    workHours = total > 0 ? total : 0;
+                } else {
+                    workHours = rec.workHours;
+                }
+
+                try {
+                    await updateDoc(doc(db, "timesheet_records", docId), {
+                        timeIn: tIn, timeOut: tOut, breakIn: bIn, breakOut: bOut,
+                        otIn: oIn, otOut: oOut, notes: document.getElementById('edit-notes').value || '',
+                        workHours: workHours, otHours: this.diffHours(oIn, oOut)
+                    });
+                    this.closeModal('modal-form');
+                    this.showAlert("Success", "Record updated via Cloud.");
+                } catch(e) {
+                    this.showAlert("Database Error", "Failed to save edit.", true);
+                }
+            },
+
+            async updatePassword() {
+                const newP = document.getElementById('pass-new').value;
+                if(!newP) return this.showAlert("Error", "Password cannot be empty.", true);
+                
+                try {
+                    await updateDoc(doc(db, "timesheet_users", this.currentUser.email), {
+                        password: newP
+                    });
+                    this.currentUser.password = newP;
+                    this.closeModal('modal-form');
+                    this.showAlert("Success", "Your password has been securely updated in the database.");
+                } catch (e) {
+                    this.showAlert("Database Error", "Failed to update password.", true);
+                }
+            },
+
+            // --- UTILS & HELPERS ---
+            formatDate(date) {
+                return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+            },
+            formatTime(date) {
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            },
+            updateClock() {
+                const now = this.getRealTime();
+                document.getElementById('live-clock').innerText = "PHT " + now.toLocaleTimeString('en-US');
+                document.getElementById('dash-date-display').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            },
+            diffHours(startStr, endStr) {
+                if(!startStr || !endStr || startStr === 'LEAVE' || endStr === 'LEAVE') return 0;
+                const parseTime = (str) => {
+                    const [time, mod] = str.split(' ');
+                    let [h, m] = time.split(':');
+                    h = parseInt(h);
+                    if(h === 12) h = 0;
+                    if(mod === 'PM') h += 12;
+                    return h + (parseInt(m)/60);
+                };
+                try {
+                    let diff = parseTime(endStr) - parseTime(startStr);
+                    if (diff < 0) diff += 24; 
+                    return Math.round(diff * 100) / 100;
+                } catch(e) { return 0; }
+            },
+
+            // --- UI BINDINGS & MODALS ---
+            bindUIEvents() {
+                document.getElementById('login-form').onsubmit = (e) => this.handleLogin(e);
+                
+                document.getElementById('btn-signout').onclick = () => {
+                    localStorage.removeItem('timesheet_active_session');
+                    this.showLoginScreen();
+                };
+                
+                const tabs = ['personal', 'admin', 'all-records', 'manage-users'];
+                tabs.forEach(t => {
+                    const btn = document.getElementById(`tab-btn-${t}`);
+                    if(btn) btn.onclick = () => this.switchTab(t);
+                });
+
+                document.getElementById('btn-action-TimeIn').onclick = () => this.logAction('TimeIn');
+                document.getElementById('btn-action-BreakIn').onclick = () => this.logAction('BreakIn');
+                document.getElementById('btn-action-BreakOut').onclick = () => this.logAction('BreakOut');
+                document.getElementById('btn-action-TimeOut').onclick = () => this.logAction('TimeOut');
+                document.getElementById('btn-action-OvertimeIn').onclick = () => this.logAction('OvertimeIn');
+                document.getElementById('btn-action-OvertimeOut').onclick = () => this.logAction('OvertimeOut');
+                
+                document.getElementById('btn-action-Disconnect').onclick = () => {
+                    this.showGenericModal("Log Disconnection", `
+                        <div><label class="block text-sm font-medium mb-1">Time Disconnected (e.g., 02:00 PM)</label>
+                        <input type="time" id="disc-time" class="w-full px-3 py-2 border rounded-lg outline-none"></div>
+                        <div class="mt-4"><label class="block text-sm font-medium mb-1">Reason</label>
+                        <select id="disc-reason" class="w-full px-3 py-2 border rounded-lg outline-none">
+                            <option>Power Outage</option><option>Internet Outage</option><option>Other</option>
+                        </select></div>
+                    `, () => this.submitDisconnect());
+                };
+                document.getElementById('btn-action-Offset').onclick = () => this.processOffsetButton();
+                document.getElementById('btn-action-Leave').onclick = () => {
+                    this.showGenericModal("File Leave Request", `
+                        <div><label class="block text-sm font-medium mb-1">Leave Date</label><input type="date" id="leave-date" class="w-full px-3 py-2 border rounded-lg"></div>
+                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Leave Type</label>
+                        <select id="leave-type" class="w-full px-3 py-2 border rounded-lg"><option>Vacation</option><option>Sick</option><option>Emergency</option></select></div>
+                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Reason</label><textarea id="leave-reason" rows="2" class="w-full px-3 py-2 border rounded-lg"></textarea></div>
+                    `, () => this.submitLeave());
+                };
+
+                document.getElementById('btn-show-add-user').onclick = () => {
+                    this.showGenericModal("Add Authorized User", `
+                        <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="new-user-name" class="w-full px-3 py-2 border rounded-lg"></div>
+                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Email Address</label><input type="email" id="new-user-email" class="w-full px-3 py-2 border rounded-lg"></div>
+                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Role</label>
+                        <select id="new-user-role" class="w-full px-3 py-2 border rounded-lg"><option value="user">Employee</option><option value="admin">Admin</option></select></div>
+                    `, () => this.addNewUser());
+                };
+
+                document.getElementById('btn-close-alert').onclick = () => this.closeModal('modal-alert');
+                document.getElementById('btn-close-form').onclick = () => this.closeModal('modal-form');
+                document.getElementById('btn-filter-records').onclick = () => { this.currentPage = 1; this.renderAllRecordsTable(); };
+                document.getElementById('btn-export-csv').onclick = () => this.exportToCSV();
+                document.getElementById('btn-prev-page').onclick = () => { if(this.currentPage > 1) { this.currentPage--; this.renderAllRecordsTable(); } };
+                document.getElementById('btn-next-page').onclick = () => { 
+                    const records = this.getFilteredRecords();
+                    const totalPages = Math.ceil([...new Set(records.map(r => r.dateStr))].length / this.daysPerPage);
+                    if(this.currentPage < totalPages) { this.currentPage++; this.renderAllRecordsTable(); } 
+                };
+
+                window.sysProcessApproval = (id, key, action) => this.processApproval(id, key, action);
+                window.sysShowEditRecordModal = (id) => {
+                    const rec = this.records.find(r => r.id === id);
+                    if(!rec) return;
+                    this.showGenericModal("Admin: Edit Timesheet", `
+                        <p class="text-sm font-medium mb-4 text-slate-600 border-b pb-2">Editing: ${rec.empEmail} | ${rec.dateStr}</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Time In</label><input type="text" id="edit-tIn" value="${rec.timeIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Time Out</label><input type="text" id="edit-tOut" value="${rec.timeOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break In</label><input type="text" id="edit-bIn" value="${rec.breakIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break Out</label><input type="text" id="edit-bOut" value="${rec.breakOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT In</label><input type="text" id="edit-otIn" value="${rec.otIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT Out</label><input type="text" id="edit-otOut" value="${rec.otOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                            <div class="col-span-2"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Notes</label><input type="text" id="edit-notes" value="${rec.notes || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
+                        </div>
+                    `, () => this.submitAdminEdit(id));
+                }
+            },
+
+            showChangePasswordModal() {
+                this.showGenericModal("Change Password", `
+                    <div>
+                        <label class="block text-sm font-medium mb-1">New Password</label>
+                        <input type="password" id="pass-new" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                `, () => this.updatePassword());
+            },
+
+            showGenericModal(title, htmlContent, submitCallback) {
+                document.getElementById('modal-form-title').innerText = title;
+                document.getElementById('modal-form-content').innerHTML = htmlContent;
+                document.getElementById('modal-form-submit').onclick = submitCallback;
+                const m = document.getElementById('modal-form');
+                m.classList.remove('hidden'); m.classList.add('flex');
+            },
+
+            showAlert(title, message, isError = false) {
+                document.getElementById('modal-alert-title').innerText = title;
+                document.getElementById('modal-alert-title').className = `text-lg font-bold mb-2 ${isError ? 'text-red-600' : 'text-slate-800'}`;
+                document.getElementById('modal-alert-message').innerText = message;
+                const m = document.getElementById('modal-alert');
+                m.classList.remove('hidden'); m.classList.add('flex');
+            },
+
+            closeModal(id) {
+                document.getElementById(id).classList.add('hidden');
+                document.getElementById(id).classList.remove('flex');
+            },
+
+            switchTab(selectedTab) {
+                const tabs = ['personal', 'admin', 'all-records', 'manage-users'];
+                tabs.forEach(t => {
+                    const content = document.getElementById(`tab-content-${t}`);
+                    const btn = document.getElementById(`tab-btn-${t}`);
+                    if (!btn) return;
+                    if (t === selectedTab) {
+                        content?.classList.remove('hidden');
+                        btn.className = btn.className.replace('tab-inactive', 'tab-active');
+                    } else {
+                        content?.classList.add('hidden');
+                        btn.className = btn.className.replace('tab-active', 'tab-inactive');
+                    }
+                });
+            },
+
+            // --- RENDER FUNCTIONS ---
+            renderWeeklySummary() {
+                const now = this.getRealTime();
+                const day = now.getDay() || 7;
+                const monday = new Date(now);
+                monday.setDate(monday.getDate() - day + 1);
+                monday.setHours(0,0,0,0);
+                
+                const thisWeek = this.records.filter(r => r.empEmail === this.currentUser.email && new Date(r.dateStr) >= monday);
+                
+                let totalHrs = 0; let otHrs = 0; let leaves = 0;
+                thisWeek.forEach(r => {
+                    totalHrs += r.workHours || 0;
+                    if(r.otStatus === 'APPROVED') otHrs += r.otHours || 0;
+                    if(r.leaveStatus === 'APPROVED' || r.timeIn === 'LEAVE') leaves++;
+                });
+                
+                document.getElementById('sum-hrs').innerText = totalHrs.toFixed(2);
+                document.getElementById('sum-ot').innerText = otHrs.toFixed(2);
+                const sumLeavesEl = document.getElementById('sum-leaves');
+                if (sumLeavesEl) sumLeavesEl.innerText = leaves;
+            },
+
+            renderTimesheet() {
+                const tbody = document.getElementById('timesheet-body');
+                tbody.innerHTML = '';
+                const userRecords = this.records.filter(r => r.empEmail === this.currentUser.email).sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr));
+                
+                if(userRecords.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-500">No records found.</td></tr>`;
+                    return;
+                }
+
+                userRecords.forEach(r => {
+                    let b1 = r.otStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">OT Pen</span> ' : r.otStatus === 'APPROVED' ? '<span class="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">OT Aprv</span> ' : '';
+                    let b2 = r.offsetStatus === 'PENDING' ? '<span class="bg-indigo-100 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Pen</span> ' : r.offsetStatus === 'APPROVED' ? '<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Aprv</span> ' : '';
+                    let b3 = r.leaveStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Pen</span> ' : r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Aprv</span> ' : '';
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition";
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-medium text-slate-900">${r.dateStr}</td>
+                        <td class="px-4 py-3">${r.timeIn || '-'}</td>
+                        <td class="px-4 py-3 text-slate-500">${r.breakIn || '-'} / ${r.breakOut || '-'}</td>
+                        <td class="px-4 py-3">${r.timeOut || '-'}</td>
+                        <td class="px-4 py-3 text-purple-600 font-medium">${r.otIn || '-'} / ${r.otOut || '-'}</td>
+                        <td class="px-4 py-3 text-indigo-600 font-medium">${r.offsetIn || '-'} / ${r.offsetOut || '-'}</td>
+                        <td class="px-4 py-3 font-bold">${r.workHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 font-bold text-slate-600">${r.otHours.toFixed(2)} / ${r.offsetHours ? r.offsetHours.toFixed(2) : '0.00'}</td>
+                        <td class="px-4 py-3 text-xs text-slate-600 truncate max-w-[200px]" title="${r.notes}">${r.notes || ''} <br> ${b1}${b2}${b3}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+
+            getPendingRequests() {
+                let pending = [];
+                this.records.forEach(r => {
+                    if (r.otStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Overtime', details: `${r.otHours.toFixed(2)} hrs`, key: 'otStatus' });
+                    if (r.offsetStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Offset', details: `${r.offsetHours ? r.offsetHours.toFixed(2) : 0} hrs`, key: 'offsetStatus' });
+                    if (r.leaveStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Leave', details: r.notes, key: 'leaveStatus' });
+                });
+                return pending;
+            },
+
+            updatePendingBadge() {
+                if(!this.currentUser || !this.currentUser.isAdmin) return;
+                const count = this.getPendingRequests().length;
+                const badge = document.getElementById('pending-badge');
+                if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); } 
+                else { badge.classList.add('hidden'); }
+            },
+
+            renderAdminTable() {
+                const tbody = document.getElementById('admin-body');
+                tbody.innerHTML = '';
+                const pending = this.getPendingRequests();
+                
+                if(pending.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No pending requests queue is clear.</td></tr>`;
+                    return;
+                }
+
+                pending.forEach(r => {
+                    let typeColor = 'bg-slate-100 text-slate-700';
+                    if (r.type === 'Overtime') typeColor = 'bg-purple-100 text-purple-700';
+                    if (r.type === 'Offset') typeColor = 'bg-indigo-100 text-indigo-700';
+                    if (r.type === 'Leave') typeColor = 'bg-emerald-100 text-emerald-700';
+
+                    const typeBadge = `<span class="px-2 py-1 rounded text-xs font-bold uppercase ${typeColor}">${r.type}</span>`;
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition";
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-900">${r.empEmail}</td>
+                        <td class="px-6 py-4">${r.dateStr}</td>
+                        <td class="px-6 py-4">${typeBadge}</td>
+                        <td class="px-6 py-4 font-bold text-slate-700 truncate max-w-xs" title="${r.details}">${r.details}</td>
+                        <td class="px-6 py-4 text-right space-x-2">
+                            <button onclick="window.sysProcessApproval('${r.recId}', '${r.key}', 'approve')" class="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded font-medium transition text-xs shadow-sm">Approve</button>
+                            <button onclick="window.sysProcessApproval('${r.recId}', '${r.key}', 'disapprove')" class="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded font-medium transition text-xs shadow-sm">Deny</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+
+            getFilteredRecords() {
+                let filtered = [...this.records];
+                const start = document.getElementById('filter-start').value;
+                const end = document.getElementById('filter-end').value;
+                if (start) filtered = filtered.filter(r => new Date(r.dateStr) >= new Date(start));
+                if (end) filtered = filtered.filter(r => new Date(r.dateStr) <= new Date(end));
+                return filtered.sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr));
+            },
+
+            renderAllRecordsTable() {
+                const tbody = document.getElementById('all-records-body');
+                tbody.innerHTML = '';
+                const records = this.getFilteredRecords();
+                
+                const uniqueDates = [...new Set(records.map(r => r.dateStr))];
+                const totalPages = Math.ceil(uniqueDates.length / this.daysPerPage) || 1;
+                
+                const startIdx = (this.currentPage - 1) * this.daysPerPage;
+                const currentDates = uniqueDates.slice(startIdx, startIdx + this.daysPerPage);
+                
+                const paginatedRecords = records.filter(r => currentDates.includes(r.dateStr));
+
+                document.getElementById('pagination-info').innerText = `Page ${this.currentPage} of ${totalPages} (Showing ${paginatedRecords.length} records across ${currentDates.length} day/s)`;
+
+                if(paginatedRecords.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="px-4 py-12 text-center text-slate-500">No records found.</td></tr>`;
+                    return;
+                }
+
+                paginatedRecords.forEach(r => {
+                    let otBadge = r.otStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Pen</span>' : 
+                                 r.otStatus === 'APPROVED' ? '<span class="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Aprv</span>' :
+                                 r.otStatus === 'DISAPPROVED' ? '<span class="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Deny</span>' : '';
+                                 
+                    let offBadge = r.offsetStatus === 'PENDING' ? '<span class="bg-indigo-100 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Pen</span>' : 
+                                 r.offsetStatus === 'APPROVED' ? '<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Aprv</span>' :
+                                 r.offsetStatus === 'DISAPPROVED' ? '<span class="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Deny</span>' : '';
+
+                    let leaveBadge = r.leaveStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Pen</span>' : 
+                                 r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Aprv</span>' :
+                                 r.leaveStatus === 'DISAPPROVED' ? '<span class="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Deny</span>' : '';
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition";
+                    tr.innerHTML = `
+                        <td class="px-4 py-3 font-medium text-slate-900">${r.empEmail}</td>
+                        <td class="px-4 py-3 text-slate-600">${r.dateStr}</td>
+                        <td class="px-4 py-3">${r.timeIn || '-'}</td>
+                        <td class="px-4 py-3">${r.timeOut || '-'}</td>
+                        <td class="px-4 py-3 font-semibold text-slate-800">${r.workHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 font-semibold text-purple-700">${r.otHours.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-xs text-slate-500 truncate max-w-[150px]" title="${r.notes}">${r.notes || '-'} <br> ${otBadge} ${offBadge} ${leaveBadge}</td>
+                        <td class="px-4 py-3"><button onclick="window.sysShowEditRecordModal('${r.id}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded text-xs font-bold border border-blue-200">EDIT</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            renderManageUsersTable() {
+                const tbody = document.getElementById('manage-users-body');
+                tbody.innerHTML = '';
+                this.users.forEach(u => {
+                    const roleBadge = u.isAdmin ? '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold uppercase">System Admin</span>' : '<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold uppercase">Employee</span>';
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-50 transition";
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-slate-900">${u.name}</td>
+                        <td class="px-6 py-4 text-blue-600">${u.email}</td>
+                        <td class="px-6 py-4">${roleBadge}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            },
+            
+            exportToCSV() {
+                const records = this.getFilteredRecords();
+                if (records.length === 0) return this.showAlert("Notice", "No records found to export.");
+
+                let csvContent = "Employee Email,Date,Time In,Break In,Break Out,Time Out,OT In,OT Out,Work Hours,OT Hours,Offset Hours,Notes,OT Status,Offset Status,Leave Status\n";
+
+                records.forEach(r => {
+                    const row = [
+                        `"${r.empEmail}"`, r.dateStr,
+                        r.timeIn || '', r.breakIn || '', r.breakOut || '', r.timeOut || '',
+                        r.otIn || '', r.otOut || '',
+                        r.workHours.toFixed(2), r.otHours.toFixed(2), r.offsetHours ? r.offsetHours.toFixed(2) : 0,
+                        `"${r.notes || ''}"`, r.otStatus, r.offsetStatus || 'N/A', r.leaveStatus || 'N/A'
+                    ];
+                    csvContent += row.join(',') + "\n";
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const a = document.createElement("a");
+                a.setAttribute("href", window.URL.createObjectURL(blob));
+                a.setAttribute("download", `Timesheet_Export_${this.formatDate(new Date())}.csv`);
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        };
+
+        // Boot System
+        window.onload = () => sys.init();
+    </script>
+</body>
+</html>
