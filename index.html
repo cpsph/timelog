@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Corporate Timesheet System</title>
+    <title>Corporate Timesheet System - Manager Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- ADDED: SheetJS Library for Excel Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         [x-cloak] { display: none !important; }
         .fade-in { animation: fadeIn 0.2s ease-in-out; }
@@ -15,29 +17,47 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .tab-active { background-color: white; color: #1d4ed8; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
         .tab-inactive { background-color: transparent; color: #475569; }
-        .tab-inactive:hover { color: #1e293b; }
+        
+        /* Print Styles mimicking the Daily Time Record PDF */
+        @media print {
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; margin: 0; font-family: 'Times New Roman', Times, serif; display: block; }
+            .print-page { page-break-after: always; padding: 20px; width: 100%; box-sizing: border-box; }
+            .print-page:last-child { page-break-after: auto; }
+            .print-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 10px; }
+            .print-table th, .print-table td { border: 1px solid black; padding: 4px; text-align: center; }
+            .print-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+            .print-logo-box { width: 100px; height: 50px; border: 1px solid #ccc; display: flex; align-items: center; justify-content: center; }
+            .print-company-info { text-align: center; flex-grow: 1; font-size: 12px; }
+            .print-title { text-align: center; font-weight: bold; font-size: 16px; margin: 20px 0; text-decoration: underline; }
+            .print-meta { margin-bottom: 10px; font-size: 12px; }
+            .print-meta-row { display: flex; margin-bottom: 4px; }
+            .print-meta-label { width: 120px; font-weight: bold; }
+            .job-category-row { font-weight: bold; text-align: left !important; background-color: #f3f4f6; padding-left: 20px !important; }
+            .footer-notes { margin-top: 20px; font-size: 10px; }
+            @page { size: landscape; margin: 10mm; }
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col">
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen flex flex-col no-print">
 
     <!-- Top Navigation -->
     <nav class="bg-blue-900 text-white shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
                 <div class="flex items-center space-x-3">
-                    <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    <span class="font-bold text-xl tracking-tight">TimeSync Cloud</span>
+                    <svg class="w-8 h-8 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                    <span class="font-bold text-xl tracking-tight">CoreTech PM Portal</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <div id="live-clock" class="text-sm font-medium bg-blue-800 px-3 py-1 rounded-full hidden sm:block transition-colors">
-                        Syncing Time...
-                    </div>
+                    <div id="live-clock" class="text-sm font-medium bg-blue-800 px-3 py-1 rounded-full hidden sm:block transition-colors"></div>
                     <div id="user-profile" class="hidden items-center space-x-3">
                         <span id="nav-user-name" class="text-sm font-medium mr-2"></span>
-                        <button id="btn-change-password" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition shadow-sm">Password</button>
+                        <span id="nav-user-role" class="text-xs bg-amber-500 text-amber-900 px-2 py-0.5 rounded font-bold uppercase mr-1"></span>
+                        <button id="btn-change-password" class="text-sm bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded transition shadow-sm mr-1">Password</button>
                         <button id="btn-signout" class="text-sm bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded transition shadow-sm">Sign Out</button>
                     </div>
                 </div>
@@ -51,31 +71,23 @@
         <!-- INITIAL LOADING SCREEN -->
         <div id="view-loading" class="flex flex-col items-center justify-center space-y-4">
             <svg class="animate-spin h-10 w-10 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <p class="text-slate-500 font-medium">Connecting to Cloud Database...</p>
+            <p class="text-slate-500 font-medium">Connecting to System...</p>
         </div>
 
-        <!-- LOGIN SCREEN (LOCAL PASSWORDS) -->
+        <!-- LOGIN SCREEN -->
         <div id="view-login" class="hidden bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-slate-200 fade-in">
-            <h2 class="text-2xl font-bold text-center text-slate-800 mb-6">System Sign In</h2>
-            <p class="text-sm text-slate-500 mb-6 text-center">Use your corporate email and password to access the timesheet.<br>
-                <span class="text-xs block mt-2 p-3 bg-blue-50 rounded text-blue-800 text-left leading-relaxed border border-blue-100">
-                    <strong>Admin:</strong> kate.catapang@coretechintl.com<br>
-                    <strong>Pass:</strong> admin123
-                </span>
-            </p>
-            
+            <h2 class="text-2xl font-bold text-center text-slate-800 mb-2">Manager Portal</h2>
+            <p class="text-sm text-center text-slate-500 mb-6">Sign in with your PM or Admin credentials.</p>
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Corporate Email</label>
-                    <input type="email" id="login-email" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="name@coretechintl.com">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Username</label>
+                    <input type="text" id="login-username" required class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1 mt-3">Password</label>
-                    <input type="password" id="login-password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="••••••••">
+                    <input type="password" id="login-password" required class="w-full px-4 py-2 border border-slate-300 rounded-lg outline-none">
                 </div>
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow transition flex items-center justify-center gap-2 mt-4">
-                    Secure Sign In
-                </button>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg shadow transition mt-4">Secure Sign In</button>
             </form>
         </div>
 
@@ -83,113 +95,176 @@
         <div id="view-dashboard" class="hidden w-full max-w-7xl flex-col space-y-6 fade-in">
             
             <!-- Dashboard Header & Tabs -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col xl:flex-row justify-between items-center gap-4">
                 <div>
                     <h1 class="text-2xl font-bold text-slate-800">Welcome, <span id="dash-user-name" class="text-blue-600"></span></h1>
                     <p class="text-sm text-slate-500 mt-1" id="dash-date-display"></p>
                 </div>
-                <!-- Admin Only Tab Switcher -->
-                <div id="admin-controls" class="hidden flex flex-wrap gap-2 sm:gap-1 bg-slate-100 p-1.5 rounded-lg border border-slate-200">
-                    <button id="tab-btn-personal" class="tab-active px-4 py-2 text-sm font-medium rounded-md transition">My Timesheet</button>
-                    <button id="tab-btn-admin" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition relative">
-                        Approvals Queue
-                        <span id="pending-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full hidden">0</span>
-                    </button>
-                    <button id="tab-btn-all-records" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition">All Records & Export</button>
-                    <button id="tab-btn-manage-users" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition">Manage Users</button>
-                    <button id="tab-btn-demo" class="tab-inactive px-4 py-2 text-sm font-bold rounded-md transition text-amber-700 hover:text-amber-900 border border-transparent hover:border-amber-200 hover:bg-amber-50 ml-2">Demo Controls</button>
-                </div>
-            </div>
-
-            <!-- PERSONAL TIMESHEET TAB -->
-            <div id="tab-content-personal" class="space-y-6 fade-in">
                 
-                <!-- WEEKLY SUMMARY CARDS -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
-                        <div class="p-3 bg-blue-100 text-blue-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+                <div class="flex flex-wrap gap-2 sm:gap-1 bg-slate-100 p-1.5 rounded-lg border border-slate-200">
+                    <!-- PM Tabs -->
+                    <button id="tab-btn-pm-roster" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">Daily Bulk Logging</button>
+                    <button id="tab-btn-pm-timesheet" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">Review & Edit Timesheets</button>
+                    
+                    <!-- Admin Tabs -->
+                    <button id="tab-btn-admin-projects" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">Manage Projects</button>
+                    <button id="tab-btn-admin-roster" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">Employee Masterlist</button>
+                    <button id="tab-btn-admin-all-records" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">All Records & Export</button>
+                    <button id="tab-btn-admin-users" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">System Users</button>
+                    <button id="tab-btn-admin-settings" class="tab-inactive px-4 py-2 text-sm font-medium rounded-md transition hidden">Company Settings</button>
+                    <button id="tab-btn-admin-demo" class="tab-inactive px-4 py-2 text-sm font-bold rounded-md transition text-amber-700 hover:bg-amber-50 hidden ml-2">Demo Controls</button>
+                </div>
+            </div>
+
+            <!-- GEOLOCATION / PROJECT SELECTION BLOCK (For PMs) -->
+            <div id="pm-project-selector" class="hidden bg-indigo-50 border border-indigo-200 p-6 rounded-xl shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                <div class="flex-1">
+                    <h3 class="font-bold text-indigo-900 text-lg">Active Project Site</h3>
+                    <p class="text-sm text-indigo-700">Select the project you are currently managing. GPS validation required (3km radius).</p>
+                </div>
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <select id="pm-select-project" class="flex-1 md:w-64 px-4 py-2 border border-indigo-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"></select>
+                    <button id="btn-validate-gps" class="bg-indigo-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-indigo-700 transition flex items-center shadow-sm whitespace-nowrap">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        Lock In Site
+                    </button>
+                </div>
+            </div>
+
+            <!-- PM: DAILY ROSTER (BULK LOGGING) -->
+            <div id="tab-content-pm-roster" class="hidden space-y-6 fade-in">
+                <div id="roster-locked-view" class="hidden flex-col space-y-4">
+                    
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
-                            <p class="text-sm font-medium text-slate-500">Work Hours This Week</p>
-                            <h4 class="text-2xl font-bold text-slate-800" id="sum-hrs">0.00</h4>
+                            <h2 class="text-lg font-bold text-slate-800" id="roster-project-name">Project Name</h2>
+                            <p class="text-sm text-emerald-600 font-medium flex items-center mt-1">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> GPS Location Verified
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            <button onclick="app.bulkAction('AM_IN')" class="bg-blue-100 text-blue-800 border border-blue-200 px-4 py-2 rounded-lg font-bold hover:bg-blue-200 transition text-sm">Bulk AM IN</button>
+                            <button onclick="app.bulkAction('AM_OUT')" class="bg-orange-100 text-orange-800 border border-orange-200 px-4 py-2 rounded-lg font-bold hover:bg-orange-200 transition text-sm">Bulk AM OUT</button>
+                            <button onclick="app.bulkAction('PM_IN')" class="bg-blue-100 text-blue-800 border border-blue-200 px-4 py-2 rounded-lg font-bold hover:bg-blue-200 transition text-sm">Bulk PM IN</button>
+                            <button onclick="app.bulkAction('PM_OUT')" class="bg-rose-100 text-rose-800 border border-rose-200 px-4 py-2 rounded-lg font-bold hover:bg-rose-200 transition text-sm">Bulk PM OUT</button>
                         </div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
-                        <div class="p-3 bg-purple-100 text-purple-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Approved OT This Week</p>
-                            <h4 class="text-2xl font-bold text-slate-800" id="sum-ot">0.00</h4>
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                            <h3 class="font-bold text-slate-800">Employee Roster List</h3>
+                            <label class="flex items-center space-x-2 text-sm font-medium cursor-pointer">
+                                <input type="checkbox" id="check-all-roster" checked class="w-4 h-4 rounded text-blue-600 focus:ring-blue-500">
+                                <span>Select All Present</span>
+                            </label>
                         </div>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center space-x-4">
-                        <div class="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg></div>
-                        <div>
-                            <p class="text-sm font-medium text-slate-500">Leaves Taken This Week</p>
-                            <h4 class="text-2xl font-bold text-slate-800" id="sum-leaves">0</h4>
+                        <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
+                            <table class="w-full text-sm text-left whitespace-nowrap">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0 border-b border-slate-200 z-10">
+                                    <tr>
+                                        <th class="px-6 py-3 w-16 text-center">Present</th>
+                                        <th class="px-6 py-3">Emp ID</th>
+                                        <th class="px-6 py-3">Name</th>
+                                        <th class="px-6 py-3">Category</th>
+                                        <th class="px-6 py-3">Type</th>
+                                        <th class="px-6 py-3">Default CC</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="roster-body" class="divide-y divide-slate-200">
+                                    <!-- Populated via JS -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Action Buttons Grid -->
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4">
-                    <button id="btn-action-TimeIn" class="p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition group flex flex-col items-center justify-center text-green-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                        <span class="font-bold text-sm">Time In</span>
-                    </button>
-                    <button id="btn-action-BreakIn" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition group flex flex-col items-center justify-center text-orange-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span class="font-bold text-sm">Break In</span>
-                    </button>
-                    <button id="btn-action-BreakOut" class="p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition group flex flex-col items-center justify-center text-orange-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        <span class="font-bold text-sm">Break Out</span>
-                    </button>
-                    <button id="btn-action-TimeOut" class="p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition group flex flex-col items-center justify-center text-red-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                        <span class="font-bold text-sm">Time Out</span>
-                    </button>
-                    <button id="btn-action-OvertimeIn" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                        <span class="font-bold text-sm text-center">Overtime<br>In</span>
-                    </button>
-                    <button id="btn-action-OvertimeOut" class="p-4 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition group flex flex-col items-center justify-center text-purple-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
-                        <span class="font-bold text-sm text-center">Overtime<br>Out</span>
-                    </button>
-                    <button id="btn-action-Disconnect" class="p-4 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 transition group flex flex-col items-center justify-center text-slate-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"></path></svg>
-                        <span class="font-bold text-sm text-center">Log<br>Disconnect</span>
-                    </button>
-                    <button id="btn-action-Offset" class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100 transition group flex flex-col items-center justify-center text-indigo-700 shadow-sm">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                        <span class="font-bold text-center leading-tight text-sm">Offset<br>In/Out</span>
-                    </button>
-                    <button id="btn-action-Leave" class="p-4 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition group flex flex-col items-center justify-center text-emerald-700 col-span-2 md:col-span-1 shadow-sm lg:col-span-1">
-                        <svg class="w-7 h-7 mb-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-                        <span class="font-bold text-sm">File Leave</span>
+            <!-- PM: REVIEW & EDIT TIMESHEETS -->
+            <div id="tab-content-pm-timesheet" class="hidden space-y-6 fade-in">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800">Today's Timesheet Records</h2>
+                        <p class="text-sm text-slate-500">Review, adjust specific times, assign cost codes, and print DTR.</p>
+                    </div>
+                    <button id="btn-print-dtr" class="bg-slate-800 text-white px-5 py-2 rounded-lg font-medium hover:bg-slate-900 transition flex items-center shadow-sm">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                        Print Daily Time Record
                     </button>
                 </div>
 
-                <!-- Timesheet Record Table -->
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
-                        <h3 class="font-bold text-slate-800">My Timesheet Record</h3>
-                    </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto max-h-[60vh] overflow-y-auto">
                         <table class="w-full text-sm text-left whitespace-nowrap">
-                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-100 sticky top-0 border-b border-slate-200 z-10">
                                 <tr>
-                                    <th class="px-4 py-3">Date</th>
-                                    <th class="px-4 py-3">Time In</th>
-                                    <th class="px-4 py-3">Breaks (In-Out)</th>
-                                    <th class="px-4 py-3">Time Out</th>
-                                    <th class="px-4 py-3 text-purple-600">OT (In-Out)</th>
-                                    <th class="px-4 py-3 text-indigo-600">Offset (In-Out)</th>
-                                    <th class="px-4 py-3">Work Hrs (Inc. Offset)</th>
-                                    <th class="px-4 py-3">OT / Deficit Hrs</th>
-                                    <th class="px-4 py-3">Notes / Approvals</th>
+                                    <th class="px-4 py-3">Emp ID</th>
+                                    <th class="px-4 py-3">Name</th>
+                                    <th class="px-4 py-3">AM IN</th>
+                                    <th class="px-4 py-3">AM OUT</th>
+                                    <th class="px-4 py-3">PM IN</th>
+                                    <th class="px-4 py-3">PM OUT</th>
+                                    <th class="px-4 py-3">Cost Code Used</th>
+                                    <th class="px-4 py-3 w-20">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="timesheet-body" class="divide-y divide-slate-200">
+                            <tbody id="timesheet-edit-body" class="divide-y divide-slate-200">
+                                <!-- Populated via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN: MANAGE PROJECTS -->
+            <div id="tab-content-admin-projects" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-indigo-50 flex justify-between items-center">
+                        <h3 class="font-bold text-indigo-900">Registered Project Sites</h3>
+                        <button id="btn-add-project" class="bg-indigo-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-indigo-700 transition font-medium text-sm">Add New Project</button>
+                    </div>
+                    <div class="p-6 grid gap-4 grid-cols-1 lg:grid-cols-2" id="projects-list-container">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN: EMPLOYEE ROSTER & UPLOAD -->
+            <div id="tab-content-admin-roster" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-slate-200 bg-blue-50 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div>
+                            <h3 class="font-bold text-blue-800">Employee Masterlist</h3>
+                            <p class="text-xs text-blue-600 mt-1">Manage project assignments, types, and cost codes.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="document.getElementById('excel-file-input').click()" class="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition text-sm flex items-center font-medium">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg> Upload Excel/CSV
+                            </button>
+                            <button onclick="app.editEmployee(null)" class="bg-blue-600 text-white px-3 py-1.5 rounded shadow-sm hover:bg-blue-700 transition text-sm flex items-center font-medium">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Employee
+                            </button>
+                            <!-- Updated accept attribute for Excel -->
+                            <input type="file" id="excel-file-input" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" class="hidden">
+                        </div>
+                    </div>
+                    <div class="p-3 border-b border-slate-100 bg-slate-50 flex gap-2 items-center">
+                        <label class="text-sm font-medium text-slate-500">Filter Project:</label>
+                        <select id="admin-roster-project-filter" class="px-3 py-1 border border-slate-300 rounded outline-none text-sm w-64" onchange="app.renderAdminRoster()"></select>
+                    </div>
+                    <div class="overflow-x-auto min-h-[400px] max-h-[60vh]">
+                        <table class="w-full text-sm text-left whitespace-nowrap">
+                            <thead class="text-xs text-slate-500 uppercase bg-white sticky top-0 border-b border-slate-200 z-10 shadow-sm">
+                                <tr>
+                                    <th class="px-4 py-3">Project</th>
+                                    <th class="px-4 py-3">Emp ID</th>
+                                    <th class="px-4 py-3">Name</th>
+                                    <th class="px-4 py-3">Category</th>
+                                    <th class="px-4 py-3">Type</th>
+                                    <th class="px-4 py-3">Cost Codes (Pri / Sec)</th>
+                                    <th class="px-4 py-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-roster-body" class="divide-y divide-slate-200">
                                 <!-- JS Populated -->
                             </tbody>
                         </table>
@@ -197,37 +272,13 @@
                 </div>
             </div>
 
-            <!-- ADMIN TAB (PENDING APPROVALS) -->
-            <div id="tab-content-admin" class="hidden space-y-6 fade-in">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 bg-amber-50 flex justify-between items-center">
-                        <h3 class="font-bold text-amber-800">Pending Approvals Queue</h3>
-                    </div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm text-left whitespace-nowrap">
-                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-                                <tr>
-                                    <th class="px-6 py-3">Employee Email</th>
-                                    <th class="px-6 py-3">Date</th>
-                                    <th class="px-6 py-3">Request Type</th>
-                                    <th class="px-6 py-3">Details / Hours</th>
-                                    <th class="px-6 py-3 text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-body" class="divide-y divide-slate-200">
-                                <!-- JS Populated -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- ADMIN TAB (ALL RECORDS & EXPORT) -->
-            <div id="tab-content-all-records" class="hidden space-y-6 fade-in">
+            <!-- ADMIN: ALL RECORDS & EXPORT -->
+            <div id="tab-content-admin-all-records" class="hidden space-y-6 fade-in">
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="px-6 py-4 border-b border-slate-200 bg-emerald-50 flex flex-col md:flex-row justify-between items-center gap-4">
                         <h3 class="font-bold text-emerald-800">Company Timesheet Database</h3>
                         <div class="flex flex-wrap items-center gap-2 text-sm">
+                            <select id="filter-project" class="outline-none text-slate-800 bg-white px-2 py-1 rounded border border-slate-300"></select>
                             <div class="flex items-center space-x-2 bg-white px-2 py-1 rounded border border-slate-300">
                                 <label class="text-slate-500 font-medium">From:</label>
                                 <input type="date" id="filter-start" class="outline-none text-slate-800">
@@ -237,9 +288,17 @@
                                 <input type="date" id="filter-end" class="outline-none text-slate-800">
                             </div>
                             <button id="btn-filter-records" class="bg-emerald-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-emerald-700 transition font-medium">Filter</button>
-                            <button id="btn-export-csv" class="bg-slate-800 text-white px-4 py-1.5 rounded shadow-sm hover:bg-slate-900 transition flex items-center font-medium">
-                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export CSV
-                            </button>
+                            
+                            <div class="relative group">
+                                <button class="bg-slate-800 text-white px-4 py-1.5 rounded shadow-sm hover:bg-slate-900 transition flex items-center font-medium">
+                                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Export CSV
+                                </button>
+                                <div class="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-md shadow-lg hidden group-hover:block z-50">
+                                    <button onclick="app.exportData(false)" class="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Export Exact Times</button>
+                                    <button onclick="app.exportData(true)" class="block w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100">Export Rounded (15m)</button>
+                                </div>
+                            </div>
+                            
                             <button id="btn-reset-data" class="bg-rose-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-rose-700 transition flex items-center font-medium ml-2">
                                 <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg> Reset Data
                             </button>
@@ -249,15 +308,16 @@
                         <table class="w-full text-sm text-left whitespace-nowrap">
                             <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
                                 <tr>
-                                    <th class="px-4 py-3">Employee Email</th>
+                                    <th class="px-4 py-3">Project</th>
                                     <th class="px-4 py-3">Date</th>
-                                    <th class="px-4 py-3">Time In</th>
-                                    <th class="px-4 py-3">Time Out</th>
-                                    <th class="px-4 py-3">Work Hrs (Inc. Offset)</th>
-                                    <th class="px-4 py-3">OT / Deficit Hrs</th>
-                                    <th class="px-4 py-3">Offset Hrs</th>
-                                    <th class="px-4 py-3">Status / Notes</th>
-                                    <th class="px-4 py-3">Actions</th>
+                                    <th class="px-4 py-3">Emp ID</th>
+                                    <th class="px-4 py-3">Name</th>
+                                    <th class="px-4 py-3">AM IN</th>
+                                    <th class="px-4 py-3">AM OUT</th>
+                                    <th class="px-4 py-3">PM IN</th>
+                                    <th class="px-4 py-3">PM OUT</th>
+                                    <th class="px-4 py-3">Cost Code</th>
+                                    <th class="px-4 py-3">Total Hrs</th>
                                 </tr>
                             </thead>
                             <tbody id="all-records-body" class="divide-y divide-slate-200">
@@ -276,42 +336,72 @@
                 </div>
             </div>
 
-            <!-- ADMIN TAB (MANAGE USERS) -->
-            <div id="tab-content-manage-users" class="hidden space-y-6 fade-in">
+            <!-- ADMIN: SYSTEM USERS -->
+            <div id="tab-content-admin-users" class="hidden space-y-6 fade-in">
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="px-6 py-4 border-b border-slate-200 bg-blue-50 flex justify-between items-center">
-                        <h3 class="font-bold text-blue-800">Manage Authorized Users</h3>
-                        <button id="btn-show-add-user" class="bg-blue-600 text-white px-4 py-1.5 rounded shadow-sm hover:bg-blue-700 transition font-medium flex items-center">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Add Member
-                        </button>
+                    <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800">System Managers & Admins</h3>
+                        <button id="btn-add-user" class="bg-slate-800 text-white px-4 py-1.5 rounded shadow-sm hover:bg-slate-900 transition font-medium text-sm">Add User</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm text-left whitespace-nowrap">
-                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-100 border-b border-slate-200">
                                 <tr>
                                     <th class="px-6 py-3">Name</th>
-                                    <th class="px-6 py-3">Email Address</th>
+                                    <th class="px-6 py-3">Username</th>
                                     <th class="px-6 py-3">Role</th>
-                                    <th class="px-6 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody id="manage-users-body" class="divide-y divide-slate-200">
-                                <!-- JS Populated -->
-                            </tbody>
+                            <tbody id="users-body" class="divide-y divide-slate-200"></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- ADMIN TAB (DEMO CONTROLS - TIME WARP) -->
-            <div id="tab-content-demo" class="hidden space-y-6 fade-in">
+            <!-- ADMIN: COMPANY SETTINGS -->
+            <div id="tab-content-admin-settings" class="hidden space-y-6 fade-in">
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 max-w-2xl mx-auto">
+                    <h3 class="font-bold text-xl text-slate-800 mb-6">Global Company Settings</h3>
+                    <div class="space-y-5">
+                        <div class="p-4 bg-blue-50 text-blue-800 border border-blue-200 rounded text-sm mb-4">
+                            These settings are applied globally to all Daily Time Record PDF printouts across all projects.
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Company Name</label>
+                            <input type="text" id="settings-company-name" class="w-full px-3 py-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" value="PHC CORPORATION">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Company Address</label>
+                            <textarea id="settings-company-address" rows="3" class="w-full px-3 py-2 border rounded outline-none focus:ring-2 focus:ring-blue-500" placeholder="123 Main St, City..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Company Logo</label>
+                            <div class="flex items-center gap-4">
+                                <div id="settings-logo-preview" class="w-32 h-20 border rounded flex items-center justify-center bg-slate-50 overflow-hidden shadow-inner">
+                                    <span class="text-xs text-slate-400">No Logo</span>
+                                </div>
+                                <div class="flex-1">
+                                    <input type="file" id="settings-logo-upload" accept="image/*" class="hidden">
+                                    <button onclick="document.getElementById('settings-logo-upload').click()" class="bg-slate-200 text-slate-800 px-4 py-2 rounded font-medium hover:bg-slate-300 transition text-sm">Select Image</button>
+                                    <p class="text-xs text-slate-500 mt-2">Max file size: 500KB (to ensure database performance).</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pt-6 border-t border-slate-100">
+                            <button onclick="app.saveCompanySettings()" class="w-full bg-blue-600 text-white px-4 py-3 rounded font-bold hover:bg-blue-700 transition shadow-sm">Save Global Settings</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADMIN: DEMO CONTROLS -->
+            <div id="tab-content-admin-demo" class="hidden space-y-6 fade-in">
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden max-w-4xl mx-auto">
                     <div class="px-6 py-4 border-b border-amber-200 bg-amber-50">
                         <h3 class="font-bold text-amber-800">Demo Mode & Scenario Testing</h3>
-                        <p class="text-sm text-amber-700 mt-1">Manipulate the internal system clock to simulate different days and test automatic calculation logic.</p>
+                        <p class="text-sm text-amber-700 mt-1">Manipulate the internal system clock to simulate different days and test logging logic.</p>
                     </div>
                     <div class="p-6 space-y-8">
-                        
                         <div class="bg-slate-50 p-5 rounded-lg border border-slate-200">
                             <h4 class="font-bold text-slate-700 mb-4">Time Warp (Jump to specific Date & Time)</h4>
                             <div class="flex flex-wrap items-end gap-4">
@@ -338,7 +428,6 @@
                                 <button id="btn-demo-add-1d" class="bg-purple-100 text-purple-700 border border-purple-200 px-4 py-2 rounded-lg font-medium hover:bg-purple-200 transition shadow-sm">+ 1 Day (24 hrs)</button>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -346,186 +435,90 @@
         </div>
     </main>
 
-    <!-- Custom Modal Framework -->
-    <div id="modal-alert" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
-            <h3 id="modal-alert-title" class="text-lg font-bold mb-2">Notice</h3>
-            <p id="modal-alert-message" class="text-slate-600 mb-6 text-sm"></p>
-            <div class="flex justify-end">
-                <button id="btn-close-alert" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium">OK</button>
+    <!-- Modal System -->
+    <div id="modal-container" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 id="modal-title" class="text-lg font-bold mb-4 text-slate-800 border-b pb-2"></h3>
+            <div id="modal-content" class="mb-6 space-y-4 text-sm text-slate-700"></div>
+            <div class="flex justify-end space-x-3 border-t pt-4" id="modal-actions">
+                <button id="btn-modal-cancel" class="px-4 py-2 bg-slate-200 text-slate-700 rounded hover:bg-slate-300 font-medium hidden">Cancel</button>
+                <button id="btn-modal-confirm" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm font-medium">OK</button>
             </div>
         </div>
     </div>
 
-    <!-- Multi-purpose Form Modal -->
-    <div id="modal-form" class="fixed inset-0 z-50 hidden items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm transition-opacity">
-        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4 transform transition-all max-h-[90vh] overflow-y-auto">
-            <h3 id="modal-form-title" class="text-lg font-bold mb-4 text-slate-800 border-b pb-2">Form</h3>
-            <div id="modal-form-content" class="mb-6 space-y-4">
-                <!-- Injected via JS -->
-            </div>
-            <div class="flex justify-end space-x-3 border-t pt-4">
-                <button id="btn-close-form" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition font-medium">Cancel</button>
-                <button id="modal-form-submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm font-medium">Submit</button>
-            </div>
-        </div>
-    </div>
+    <!-- Hidden Print Area (Constructed dynamically by JS) -->
+    <div id="print-area" class="print-only" aria-hidden="true"></div>
 
-    <!-- Firebase Modular SDK Integration -->
+    <!-- Firebase SDK & Application Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, query, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // User Provided Firebase Configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBAqQmlp8q-OXRLIL2PFMojzUBWYW26xA4",
-            authDomain: "cpstimelog.firebaseapp.com",
-            projectId: "cpstimelog",
-            storageBucket: "cpstimelog.firebasestorage.app",
-            messagingSenderId: "863286709862",
-            appId: "1:863286709862:web:a49f1bdef2f5674faca7a7",
-            measurementId: "G-PJEZBE0CNS"
-        };
-
-        // Initialize Firebase
-        let app, db, auth;
+        // Global Config mapping
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = null;
         try {
-            app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-        } catch (e) {
-            console.error("Firebase initialization failed.", e);
-        }
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+                apiKey: "AIzaSyBAqQmlp8q-OXRLIL2PFMojzUBWYW26xA4",
+                authDomain: "cpstimelog.firebaseapp.com",
+                projectId: "cpstimelog",
+                storageBucket: "cpstimelog.firebasestorage.app",
+                messagingSenderId: "863286709862",
+                appId: "1:863286709862:web:a49f1bdef2f5674faca7a7",
+                measurementId: "G-PJEZBE0CNS"
+            };
+        } catch(e) { console.error(e); }
 
-        // ==========================================
-        // APPLICATION STATE & LOGIC
-        // ==========================================
-        const sys = {
-            currentUser: null,
+        const appFirebase = initializeApp(firebaseConfig);
+        const auth = getAuth(appFirebase);
+        const db = getFirestore(appFirebase);
+
+        const collPath = (name) => collection(db, 'artifacts', appId, 'public', 'data', name);
+        const docPath = (name, id) => doc(db, 'artifacts', appId, 'public', 'data', name, id);
+
+        window.app = {
+            user: null,
+            profile: null,
             users: [],
-            records: [],
+            projects: [],
+            employees: [],
+            timesheets: [],
+            activeProjectId: null,
+            unsubs: [],
+            
             timeOffset: 0,
-            demoOffset: 0, // Artificial offset used for Demo Mode testing
+            demoOffset: 0,
+            companySettings: { name: 'PHC CORPORATION', address: '', logo_url: '' },
             currentPage: 1,
             daysPerPage: 10,
-            unsubs: [],
 
             async init() {
                 await this.syncNetworkTime();
                 this.updateClock();
                 setInterval(() => this.updateClock(), 1000);
+                this.bindUI();
 
-                this.bindUIEvents();
-                
-                // Wait for anonymous auth before checking initial admin
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        await this.checkInitialAdmin();
-                        this.verifySession();
-                    } else {
-                        // Sign in anonymously if not already
-                        try {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token); 
+                        } else {
                             await signInAnonymously(auth);
-                        } catch (error) {
-                            console.error("Anonymous auth failed", error);
                         }
+                    } catch (error) { console.error("Authentication failed:", error); }
+                };
+                
+                onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        this.user = u;
+                        await this.checkInitialAdmin();
+                        this.verifySession(); 
                     }
                 });
-            },
-
-            async checkInitialAdmin() {
-                try {
-                    const adminRef = doc(db, "timesheet_users", "kate.catapang@coretechintl.com");
-                    const adminDoc = await getDoc(adminRef);
-                    if (!adminDoc.exists()) {
-                        await setDoc(adminRef, {
-                            name: "Kate Catapang",
-                            email: "kate.catapang@coretechintl.com",
-                            password: "admin123",
-                            isAdmin: true
-                        });
-                    }
-                } catch(e) {
-                    console.error("Failed to check/create initial admin. Check Firestore rules.", e);
-                }
-            },
-
-            async verifySession() {
-                const savedSession = localStorage.getItem('timesheet_active_session');
-                if (savedSession) {
-                    const sessionData = JSON.parse(savedSession);
-                    try {
-                        const userDoc = await getDoc(doc(db, "timesheet_users", sessionData.email));
-                        if(userDoc.exists()) {
-                            this.currentUser = userDoc.data();
-                            this.setupRealtimeListeners();
-                            this.showDashboard();
-                            return;
-                        }
-                    } catch(e) {
-                        console.error("Session verification failed.", e);
-                    }
-                }
-                this.showLoginScreen();
-            },
-
-            async handleLogin(e) {
-                e.preventDefault();
-                const email = document.getElementById('login-email').value.trim().toLowerCase();
-                const pass = document.getElementById('login-password').value;
-
-                try {
-                    const userDoc = await getDoc(doc(db, "timesheet_users", email));
-                    if(userDoc.exists()) {
-                        const userData = userDoc.data();
-                        if(userData.password === pass) {
-                            localStorage.setItem('timesheet_active_session', JSON.stringify({ email: email }));
-                            this.currentUser = userData;
-                            this.setupRealtimeListeners();
-                            this.showDashboard();
-                        } else {
-                            this.showAlert("Authentication Failed", "Incorrect password provided.", true);
-                        }
-                    } else {
-                        this.showAlert("Authentication Failed", "Email not found in authorized users list.", true);
-                    }
-                } catch(err) {
-                    this.showAlert("Database Error", "Failed to connect to database. Check your Firestore Security Rules.", true);
-                    console.error(err);
-                }
-            },
-
-            showLoginScreen() {
-                this.currentUser = null;
-                this.clearListeners();
-                document.getElementById('view-loading').classList.add('hidden');
-                document.getElementById('view-dashboard').classList.add('hidden');
-                document.getElementById('user-profile').classList.remove('flex');
-                document.getElementById('user-profile').classList.add('hidden');
-                document.getElementById('view-login').classList.remove('hidden');
-                document.getElementById('login-password').value = '';
-            },
-
-            showDashboard() {
-                document.getElementById('view-login').classList.add('hidden');
-                document.getElementById('view-loading').classList.add('hidden');
-                document.getElementById('view-dashboard').classList.remove('hidden');
-                document.getElementById('view-dashboard').classList.add('flex');
-                document.getElementById('user-profile').classList.remove('hidden');
-                document.getElementById('user-profile').classList.add('flex');
-                document.getElementById('nav-user-name').innerText = this.currentUser.name;
-                document.getElementById('dash-user-name').innerText = this.currentUser.name;
                 
-                if (this.currentUser.isAdmin) {
-                    document.getElementById('admin-controls').classList.remove('hidden');
-                    document.getElementById('admin-controls').classList.add('flex');
-                } else {
-                    document.getElementById('admin-controls').classList.add('hidden');
-                    document.getElementById('admin-controls').classList.remove('flex');
-                }
-                
-                this.switchTab('personal');
+                initAuth();
             },
 
             async syncNetworkTime() {
@@ -537,826 +530,821 @@
                         const localTime = Date.now();
                         this.timeOffset = networkTime - localTime;
                     }
-                } catch(e) {
-                    console.warn("Failed to reach WorldTimeAPI. Falling back to local clock.");
-                }
+                } catch(e) { console.warn("Failed to reach WorldTimeAPI. Falling back to local clock."); }
             },
 
             getRealTime() {
-                // Incorporate the natural offset + any artificial DEMO offset applied by admin
                 return new Date(Date.now() + this.timeOffset + this.demoOffset);
             },
 
-            // --- REALTIME DATABASE LISTENERS ---
-            setupRealtimeListeners() {
-                this.clearListeners();
-                
-                const qRecords = query(collection(db, "timesheet_records"));
-                const unsubRecords = onSnapshot(qRecords, (snapshot) => {
-                    this.records = [];
-                    snapshot.forEach(doc => this.records.push({ id: doc.id, ...doc.data() }));
-                    this.renderAllDashboards();
-                });
-                this.unsubs.push(unsubRecords);
-
-                const unsubUsers = onSnapshot(collection(db, "timesheet_users"), (snapshot) => {
-                    this.users = [];
-                    snapshot.forEach(doc => this.users.push(doc.data()));
-                    if(this.currentUser?.isAdmin) this.renderManageUsersTable();
-                });
-                this.unsubs.push(unsubUsers);
-            },
-
-            clearListeners() {
-                this.unsubs.forEach(unsub => unsub());
-                this.unsubs = [];
-            },
-
-            renderAllDashboards() {
-                if(!this.currentUser) return;
-                this.renderTimesheet();
-                this.renderWeeklySummary();
-                if(this.currentUser.isAdmin) {
-                    this.renderAdminTable();
-                    this.renderAllRecordsTable();
-                    this.updatePendingBadge();
-                }
-            },
-
-            // --- CORE LOGGING MACROS (CLOUD ENABLED) ---
-            async logAction(type) {
-                if(!this.currentUser) return;
-                const todayStr = this.formatDate(this.getRealTime());
-                const docId = `${this.currentUser.email}_${todayStr}`;
-                const currentTime = this.formatTime(this.getRealTime());
-                
-                const recRef = doc(db, "timesheet_records", docId);
-                const recSnap = await getDoc(recRef);
-                
-                let rec = recSnap.exists() ? recSnap.data() : {
-                    empEmail: this.currentUser.email, empName: this.currentUser.name, dateStr: todayStr,
-                    timeIn: null, breakIn: null, breakOut: null, timeOut: null,
-                    otIn: null, otOut: null, offsetIn: null, offsetOut: null,
-                    workHours: 0, otHours: 0, offsetHours: 0, disconnectedHours: 0, 
-                    notes: "", otStatus: "N/A", offsetStatus: "N/A", leaveStatus: "N/A"
-                };
-
+            async checkInitialAdmin() {
                 try {
-                    switch(type) {
-                        case 'TimeIn':
-                            if (rec.timeIn) return this.showAlert("Notice", `Already Timed In today at ${rec.timeIn}.`);
-                            rec.timeIn = currentTime;
-                            this.showAlert("Success", `Time In recorded securely at ${currentTime}.`);
-                            break;
-                        case 'BreakIn':
-                            if (!rec.timeIn) return this.showAlert("Error", "You must Time In first.", true);
-                            if (rec.breakIn) return this.showAlert("Notice", "Break Time In is already recorded.");
-                            rec.breakIn = currentTime;
-                            this.showAlert("Success", `Break In recorded at ${currentTime}.`);
-                            break;
-                        case 'BreakOut':
-                            if (!rec.breakIn) return this.showAlert("Error", "You must Break In first.", true);
-                            if (rec.breakOut) return this.showAlert("Notice", "Break Time Out is already recorded.");
-                            rec.breakOut = currentTime;
-                            this.showAlert("Success", `Break Out recorded at ${currentTime}.`);
-                            break;
-                        case 'TimeOut':
-                            if (!rec.timeIn) return this.showAlert("Error", "You must Time In first.", true);
-                            if (rec.timeOut) return this.showAlert("Notice", "You have already Timed Out.");
-                            if (rec.breakIn && !rec.breakOut) return this.showAlert("Error", "Please record Break Out before Timing Out.", true);
-                            
-                            rec.timeOut = currentTime;
-                            
-                            let total = this.diffHours(rec.timeIn, rec.timeOut);
-                            if(rec.breakIn && rec.breakOut) total -= this.diffHours(rec.breakIn, rec.breakOut);
-                            total -= (rec.disconnectedHours || 0); // Deduct disconnects
-                            
-                            rec.workHours = total > 0 ? total : 0;
-                            // Negative OT represents a deficit
-                            rec.otHours = rec.workHours - 9; 
-                            
-                            this.showAlert("Success", `Time Out recorded. Regular Shift Hours: ${rec.workHours.toFixed(2)}`);
-                            break;
-                        case 'OvertimeIn':
-                            if (!rec.timeOut) return this.showAlert("Error", "You must Time Out of regular shift before starting Overtime.", true);
-                            if (rec.otIn) return this.showAlert("Notice", "Overtime In is already recorded.");
-                            rec.otIn = currentTime;
-                            this.showAlert("Success", `Overtime In recorded at ${currentTime}.`);
-                            break;
-                        case 'OvertimeOut':
-                            if (!rec.otIn) return this.showAlert("Error", "You must record Overtime In first.", true);
-                            if (rec.otOut) return this.showAlert("Notice", "Overtime Out is already recorded.");
-                            rec.otOut = currentTime;
-                            
-                            // Only overwrite the automated otHours if they explicitly logged manual OT
-                            rec.otHours = this.diffHours(rec.otIn, rec.otOut);
-                            rec.otStatus = "PENDING";
-                            this.showAlert("Success", `Overtime Out recorded. Submitted for admin approval.`);
-                            break;
+                    const adminRef = docPath('users', 'kate.catapang');
+                    const snap = await getDoc(adminRef);
+                    if(!snap.exists()) {
+                        await setDoc(adminRef, { username: 'kate.catapang', password: 'admin123', role: 'admin', name: 'Kate Catapang' });
                     }
-                    await setDoc(recRef, rec);
-                } catch(err) {
-                    this.showAlert("Database Error", "Failed to save log to cloud.", true);
-                    console.error(err);
-                }
+                } catch(e) { console.error("Initial admin check failed.", e); }
             },
 
-            // --- COMPLEX FORMS (DISCONNECT/OFFSET/LEAVE) ---
-            async submitDisconnect() {
-                const tInStr = document.getElementById('disc-time').value;
-                if(!tInStr) return this.showAlert("Error", "Please provide the disconnected time.", true);
-                
-                const todayStr = this.formatDate(this.getRealTime());
-                const docId = `${this.currentUser.email}_${todayStr}`;
-                const recRef = doc(db, "timesheet_records", docId);
-                const recSnap = await getDoc(recRef);
-                
-                if(!recSnap.exists() || !recSnap.data().timeIn) return this.showAlert("Error", "You must Time In before recording disconnection.", true);
-                
-                let rec = recSnap.data();
-
-                const dParts = tInStr.split(':');
-                const d = this.getRealTime(); d.setHours(dParts[0], dParts[1], 0);
-                const formattedIn = this.formatTime(d);
-                const formattedOut = this.formatTime(this.getRealTime());
-                const reason = document.getElementById('disc-reason').value;
-                const hrs = this.diffHours(formattedIn, formattedOut);
-
-                rec.disconnectedHours = (rec.disconnectedHours || 0) + hrs;
-                rec.notes = (rec.notes ? rec.notes + " | " : "") + `[DISC] ${formattedIn}-${formattedOut}`;
-                
-                // Recalculate work hours & deficit if they already timed out
-                if (rec.timeOut) {
-                    let total = this.diffHours(rec.timeIn, rec.timeOut);
-                    if(rec.breakIn && rec.breakOut) total -= this.diffHours(rec.breakIn, rec.breakOut);
-                    total -= rec.disconnectedHours;
-                    rec.workHours = total > 0 ? total : 0;
-                    
-                    // Update deficit if no manual OT was logged
-                    if(!rec.otIn && !rec.otOut) {
-                        rec.otHours = rec.workHours - 9;
-                    }
-                }
-
-                await setDoc(recRef, rec);
-                this.closeModal('modal-form');
-                this.showAlert("Disconnection Logged", `Time lost (${hrs.toFixed(2)} hrs) saved. Calculations updated.`);
-            },
-
-            async processOffsetButton() {
-                const todayStr = this.formatDate(this.getRealTime());
-                const docId = `${this.currentUser.email}_${todayStr}`;
-                const recRef = doc(db, "timesheet_records", docId);
-                const recSnap = await getDoc(recRef);
-                
-                if(!recSnap.exists() || !recSnap.data().timeIn) return this.showAlert("Error", "You must Time In before offsetting.", true);
-                let rec = recSnap.data();
-
-                if (rec.offsetIn && !rec.offsetOut) {
-                    rec.offsetOut = this.formatTime(this.getRealTime());
-                    rec.offsetHours = this.diffHours(rec.offsetIn, rec.offsetOut);
-                    rec.offsetStatus = "PENDING";
-                    await setDoc(recRef, rec);
-                    return this.showAlert("Success", "Offset Out recorded. Submitted for admin approval.");
-                }
-                if (rec.offsetOut) return this.showAlert("Notice", "Offset is already complete for today.");
-
-                const discRecords = this.records.filter(r => r.empEmail === this.currentUser.email && (r.notes || "").includes("[DISC]"));
-                if (discRecords.length === 0) return this.showAlert("Notice", "No recorded disconnected days to offset.");
-
-                let options = discRecords.map(r => `<option value="${r.dateStr}">${r.dateStr} (${r.disconnectedHours} hrs lost)</option>`).join('');
-                
-                this.showGenericModal("Start Offset Time", `
-                    <div>
-                        <label class="block text-sm font-medium mb-1">Select Disconnected Date to Offset</label>
-                        <select id="offset-date" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">${options}</select>
-                    </div>
-                `, async () => {
-                    const dateSelected = document.getElementById('offset-date').value;
-                    rec.offsetIn = this.formatTime(this.getRealTime());
-                    rec.notes = (rec.notes ? rec.notes + " | " : "") + `TO OFFSET ${dateSelected}`;
-                    await setDoc(recRef, rec);
-                    this.closeModal('modal-form');
-                    this.showAlert("Offset In", "Offset In recorded. Don't forget to click Offset Out.");
-                });
-            },
-
-            async submitLeave() {
-                const dateStr = document.getElementById('leave-date').value;
-                const type = document.getElementById('leave-type').value;
-                const reason = document.getElementById('leave-reason').value.trim();
-                
-                if(!dateStr) return this.showAlert("Error", "Please select a date.", true);
-                if(!reason) return this.showAlert("Error", "Please provide a reason for your leave.", true);
-                
-                const docId = `${this.currentUser.email}_${dateStr}`;
-                const recRef = doc(db, "timesheet_records", docId);
-                const recSnap = await getDoc(recRef);
-
-                if(recSnap.exists()) return this.showAlert("Error", "You already have a log/record for this date.", true);
-
-                await setDoc(recRef, {
-                    empEmail: this.currentUser.email, empName: this.currentUser.name, dateStr: dateStr,
-                    timeIn: "LEAVE", breakIn: "-", breakOut: "-", timeOut: "LEAVE",
-                    otIn: null, otOut: null, offsetIn: null, offsetOut: null,
-                    workHours: 8, otHours: 0, offsetHours: 0, disconnectedHours: 0, 
-                    notes: `[LEAVE] ${type} - ${reason}`, otStatus: "N/A", offsetStatus: "N/A", leaveStatus: "PENDING"
-                });
-                
-                this.closeModal('modal-form');
-                this.showAlert("Leave Filed", "Your leave request has been submitted to the admin.");
-            },
-
-            // --- ADMIN ACTIONS ---
-            async processApproval(id, keyToUpdate, action) {
-                try {
-                    const status = action === 'approve' ? 'APPROVED' : 'DISAPPROVED';
-                    const updateObj = {};
-                    updateObj[keyToUpdate] = status;
-                    
-                    if(keyToUpdate === 'leaveStatus' && action === 'disapprove') {
-                        updateObj.workHours = 0;
-                    }
-                    await updateDoc(doc(db, "timesheet_records", id), updateObj);
-                } catch(e) {
-                    this.showAlert("Database Error", "Failed to update record.", true);
-                }
-            },
-
-            async addNewUser() {
-                const name = document.getElementById('new-user-name').value.trim();
-                const email = document.getElementById('new-user-email').value.trim().toLowerCase();
-                const pass = document.getElementById('new-user-pass').value.trim();
-                const role = document.getElementById('new-user-role').value;
-
-                if(!name || !email || !pass) return this.showAlert("Error", "Please fill out all fields including password.", true);
-                
-                try {
-                    const userDoc = await getDoc(doc(db, "timesheet_users", email));
-                    if(userDoc.exists()) return this.showAlert("Error", "User with this email already exists.", true);
-
-                    await setDoc(doc(db, "timesheet_users", email), {
-                        name: name, email: email, password: pass, isAdmin: role === 'admin'
-                    });
-                    this.closeModal('modal-form');
-                    this.showAlert("Success", `User ${name} added successfully.`);
-                } catch(e) {
-                    this.showAlert("Database Error", "Failed to add user.", true);
-                }
-            },
-
-            showEditUserModal(email) {
-                const userToEdit = this.users.find(u => u.email === email);
-                if (!userToEdit) return;
-
-                this.showGenericModal("Edit User", `
-                    <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="edit-user-name" class="w-full px-3 py-2 border rounded-lg" value="${userToEdit.name}"></div>
-                    <div class="mt-3"><label class="block text-sm font-medium mb-1">Password</label><input type="text" id="edit-user-pass" class="w-full px-3 py-2 border rounded-lg" value="${userToEdit.password}"></div>
-                    <div class="mt-3"><label class="block text-sm font-medium mb-1">Role</label>
-                    <select id="edit-user-role" class="w-full px-3 py-2 border rounded-lg">
-                        <option value="user" ${!userToEdit.isAdmin ? 'selected' : ''}>Employee</option>
-                        <option value="admin" ${userToEdit.isAdmin ? 'selected' : ''}>Admin</option>
-                    </select></div>
-                `, async () => {
-                    const newName = document.getElementById('edit-user-name').value.trim();
-                    const newPass = document.getElementById('edit-user-pass').value.trim();
-                    const newRole = document.getElementById('edit-user-role').value;
-
-                    if(!newName || !newPass) return this.showAlert("Error", "Name and password cannot be empty.", true);
-
+            async verifySession() {
+                const sessionUser = localStorage.getItem('pm_session_username');
+                if (sessionUser) {
                     try {
-                        await updateDoc(doc(db, "timesheet_users", email), {
-                            name: newName, password: newPass, isAdmin: newRole === 'admin'
-                        });
-                        this.closeModal('modal-form');
-                        this.showAlert("Success", "User updated successfully.");
-                    } catch(e) {
-                        this.showAlert("Database Error", "Failed to update user.", true);
-                    }
-                });
+                        const snap = await getDoc(docPath('users', sessionUser));
+                        if(snap.exists()) {
+                            this.profile = snap.data();
+                            this.setupListeners();
+                            this.showDashboard();
+                            return;
+                        }
+                    } catch(e) {}
+                }
+                this.showView('view-login');
             },
 
-            deleteUser(email) {
-                if(email === this.currentUser.email) return this.showAlert("Error", "You cannot delete your own account while logged in.", true);
-                
-                this.showGenericModal("Confirm Delete", `
-                    <p class="text-slate-600 mb-4">Are you sure you want to permanently delete the user <strong>${email}</strong>? They will no longer be able to log in.</p>
-                `, async () => {
-                    try {
-                        await deleteDoc(doc(db, "timesheet_users", email));
-                        this.closeModal('modal-form');
-                        this.showAlert("Success", "User deleted successfully.");
-                    } catch(e) {
-                        this.showAlert("Database Error", "Failed to delete user.", true);
-                    }
-                });
-            },
-
-            async submitAdminEdit(docId) {
-                const rec = this.records.find(r => r.id === docId);
-                let tIn = document.getElementById('edit-tIn').value || null;
-                let tOut = document.getElementById('edit-tOut').value || null;
-                let bIn = document.getElementById('edit-bIn').value || null;
-                let bOut = document.getElementById('edit-bOut').value || null;
-                let oIn = document.getElementById('edit-otIn').value || null;
-                let oOut = document.getElementById('edit-otOut').value || null;
-                
-                let workHours = 0;
-                if(tIn !== 'LEAVE') {
-                    let total = this.diffHours(tIn, tOut);
-                    if(bIn && bOut) total -= this.diffHours(bIn, bOut);
-                    total -= (rec.disconnectedHours || 0); // Factor in existing disconnects
-                    workHours = total > 0 ? total : 0;
-                } else {
-                    workHours = rec.workHours;
-                }
-
-                let otHours = 0;
-                let otStatus = rec.otStatus;
-                
-                // If they manually logged OT, use that. Otherwise use the deficit calculation.
-                if (oIn && oOut) {
-                    otHours = this.diffHours(oIn, oOut);
-                    if (otStatus === 'N/A') otStatus = 'PENDING';
-                } else if (tIn !== 'LEAVE') {
-                    otHours = workHours - 9;
-                    if (otHours > 0 && otStatus === 'N/A') otStatus = 'PENDING';
-                    if (otHours <= 0) otStatus = 'N/A';
-                }
-
+            async handleLogin(e) {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value.trim().toLowerCase();
+                const pass = document.getElementById('login-password').value;
                 try {
-                    await updateDoc(doc(db, "timesheet_records", docId), {
-                        timeIn: tIn, timeOut: tOut, breakIn: bIn, breakOut: bOut,
-                        otIn: oIn, otOut: oOut,
-                        notes: document.getElementById('edit-notes').value || '',
-                        workHours: workHours, otHours: otHours, otStatus: otStatus
-                    });
-                    this.closeModal('modal-form');
-                    this.showAlert("Success", "Record updated and calculations adjusted.");
-                } catch(e) {
-                    this.showAlert("Database Error", "Failed to save edit.", true);
-                }
-            },
-
-            async updatePassword() {
-                const newP = document.getElementById('pass-new').value;
-                if(!newP) return this.showAlert("Error", "Password cannot be empty.", true);
-                
-                try {
-                    await updateDoc(doc(db, "timesheet_users", this.currentUser.email), {
-                        password: newP
-                    });
-                    this.currentUser.password = newP;
-                    this.closeModal('modal-form');
-                    this.showAlert("Success", "Your password has been securely updated in the database.");
-                } catch (e) {
-                    this.showAlert("Database Error", "Failed to update password.", true);
-                }
-            },
-
-            // --- UTILS & HELPERS ---
-            formatDate(date) {
-                return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-            },
-            formatTime(date) {
-                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            },
-            updateClock() {
-                const now = this.getRealTime();
-                const clockEl = document.getElementById('live-clock');
-                
-                // Visual warning if demo mode is active
-                if (this.demoOffset !== 0) {
-                    clockEl.classList.replace('bg-blue-800', 'bg-amber-600');
-                    clockEl.innerText = "DEMO: " + now.toLocaleTimeString('en-US');
-                } else {
-                    clockEl.classList.replace('bg-amber-600', 'bg-blue-800');
-                    clockEl.innerText = "PHT " + now.toLocaleTimeString('en-US');
-                }
-                
-                document.getElementById('dash-date-display').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-            },
-            diffHours(startStr, endStr) {
-                if(!startStr || !endStr || startStr === 'LEAVE' || endStr === 'LEAVE') return 0;
-                const parseTime = (str) => {
-                    const [time, mod] = str.split(' ');
-                    let [h, m] = time.split(':');
-                    h = parseInt(h);
-                    if(h === 12) h = 0;
-                    if(mod === 'PM') h += 12;
-                    return h + (parseInt(m)/60);
-                };
-                try {
-                    let diff = parseTime(endStr) - parseTime(startStr);
-                    if (diff < 0) diff += 24; 
-                    return Math.round(diff * 100) / 100;
-                } catch(e) { return 0; }
-            },
-
-            // --- UI BINDINGS & MODALS ---
-            bindUIEvents() {
-                document.getElementById('login-form').onsubmit = (e) => this.handleLogin(e);
-                
-                document.getElementById('btn-signout').onclick = () => {
-                    localStorage.removeItem('timesheet_active_session');
-                    this.showLoginScreen();
-                };
-
-                document.getElementById('btn-change-password').onclick = () => this.showChangePasswordModal();
-                
-                const tabs = ['personal', 'admin', 'all-records', 'manage-users', 'demo'];
-                tabs.forEach(t => {
-                    const btn = document.getElementById(`tab-btn-${t}`);
-                    if(btn) btn.onclick = () => this.switchTab(t);
-                });
-
-                document.getElementById('btn-action-TimeIn').onclick = () => this.logAction('TimeIn');
-                document.getElementById('btn-action-BreakIn').onclick = () => this.logAction('BreakIn');
-                document.getElementById('btn-action-BreakOut').onclick = () => this.logAction('BreakOut');
-                document.getElementById('btn-action-TimeOut').onclick = () => this.logAction('TimeOut');
-                document.getElementById('btn-action-OvertimeIn').onclick = () => this.logAction('OvertimeIn');
-                document.getElementById('btn-action-OvertimeOut').onclick = () => this.logAction('OvertimeOut');
-                
-                document.getElementById('btn-action-Disconnect').onclick = () => {
-                    this.showGenericModal("Log Disconnection", `
-                        <div><label class="block text-sm font-medium mb-1">Time Disconnected (e.g., 02:00 PM)</label>
-                        <input type="time" id="disc-time" class="w-full px-3 py-2 border rounded-lg outline-none"></div>
-                        <div class="mt-4"><label class="block text-sm font-medium mb-1">Reason</label>
-                        <select id="disc-reason" class="w-full px-3 py-2 border rounded-lg outline-none">
-                            <option>Power Outage</option><option>Internet Outage</option><option>Other</option>
-                        </select></div>
-                    `, () => this.submitDisconnect());
-                };
-                document.getElementById('btn-action-Offset').onclick = () => this.processOffsetButton();
-                document.getElementById('btn-action-Leave').onclick = () => {
-                    this.showGenericModal("File Leave Request", `
-                        <div><label class="block text-sm font-medium mb-1">Leave Date</label><input type="date" id="leave-date" class="w-full px-3 py-2 border rounded-lg"></div>
-                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Leave Type</label>
-                        <select id="leave-type" class="w-full px-3 py-2 border rounded-lg"><option>Vacation</option><option>Sick</option><option>Emergency</option></select></div>
-                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Reason</label><textarea id="leave-reason" rows="2" class="w-full px-3 py-2 border rounded-lg"></textarea></div>
-                    `, () => this.submitLeave());
-                };
-
-                document.getElementById('btn-show-add-user').onclick = () => {
-                    this.showGenericModal("Add Authorized User", `
-                        <div><label class="block text-sm font-medium mb-1">Full Name</label><input type="text" id="new-user-name" class="w-full px-3 py-2 border rounded-lg"></div>
-                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Email Address</label><input type="email" id="new-user-email" class="w-full px-3 py-2 border rounded-lg"></div>
-                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Initial Password</label><input type="text" id="new-user-pass" class="w-full px-3 py-2 border rounded-lg" placeholder="Set default password"></div>
-                        <div class="mt-3"><label class="block text-sm font-medium mb-1">Role</label>
-                        <select id="new-user-role" class="w-full px-3 py-2 border rounded-lg"><option value="user">Employee</option><option value="admin">Admin</option></select></div>
-                    `, () => this.addNewUser());
-                };
-
-                // Demo Time Warp Events
-                document.getElementById('btn-demo-apply').onclick = () => {
-                    const dateVal = document.getElementById('demo-date').value;
-                    const timeVal = document.getElementById('demo-time').value;
-                    if(!dateVal || !timeVal) return this.showAlert("Error", "Select both a target date and time.", true);
-                    
-                    const targetDate = new Date(`${dateVal}T${timeVal}`);
-                    const realNetworkTime = Date.now() + this.timeOffset;
-                    this.demoOffset = targetDate.getTime() - realNetworkTime;
-                    
-                    this.showAlert("Time Warped", `System time is now simulating ${targetDate.toLocaleString()}`);
-                    this.renderAllDashboards();
-                };
-                
-                document.getElementById('btn-demo-reset').onclick = () => {
-                    this.demoOffset = 0;
-                    this.showAlert("Reset Success", "System clock restored to real time.");
-                    this.renderAllDashboards();
-                };
-
-                document.getElementById('btn-demo-add-1h').onclick = () => { this.demoOffset += 3600000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-4h').onclick = () => { this.demoOffset += 14400000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-8h').onclick = () => { this.demoOffset += 28800000; this.renderAllDashboards(); };
-                document.getElementById('btn-demo-add-1d').onclick = () => { this.demoOffset += 86400000; this.renderAllDashboards(); };
-
-                // Globals for inline
-                document.getElementById('btn-close-alert').onclick = () => this.closeModal('modal-alert');
-                document.getElementById('btn-close-form').onclick = () => this.closeModal('modal-form');
-                document.getElementById('btn-filter-records').onclick = () => { this.currentPage = 1; this.renderAllRecordsTable(); };
-                document.getElementById('btn-export-csv').onclick = () => this.exportToCSV();
-                document.getElementById('btn-reset-data').onclick = () => this.showResetDataModal();
-                document.getElementById('btn-prev-page').onclick = () => { if(this.currentPage > 1) { this.currentPage--; this.renderAllRecordsTable(); } };
-                document.getElementById('btn-next-page').onclick = () => { 
-                    const records = this.getFilteredRecords();
-                    const totalPages = Math.ceil([...new Set(records.map(r => r.dateStr))].length / this.daysPerPage);
-                    if(this.currentPage < totalPages) { this.currentPage++; this.renderAllRecordsTable(); } 
-                };
-
-                window.sysProcessApproval = (id, key, action) => this.processApproval(id, key, action);
-                window.sysShowEditUserModal = (email) => this.showEditUserModal(email);
-                window.sysDeleteUser = (email) => this.deleteUser(email);
-                window.sysShowEditRecordModal = (id) => {
-                    const rec = this.records.find(r => r.id === id);
-                    if(!rec) return;
-                    this.showGenericModal("Admin: Edit Timesheet", `
-                        <p class="text-sm font-medium mb-4 text-slate-600 border-b pb-2">Editing: ${rec.empEmail} | ${rec.dateStr}</p>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Time In</label><input type="text" id="edit-tIn" value="${rec.timeIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Time Out</label><input type="text" id="edit-tOut" value="${rec.timeOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break In</label><input type="text" id="edit-bIn" value="${rec.breakIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Break Out</label><input type="text" id="edit-bOut" value="${rec.breakOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT In</label><input type="text" id="edit-otIn" value="${rec.otIn || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div><label class="block text-xs font-bold text-purple-600 uppercase tracking-wide">OT Out</label><input type="text" id="edit-otOut" value="${rec.otOut || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                            <div class="col-span-2"><label class="block text-xs font-bold text-slate-500 uppercase tracking-wide">Notes</label><input type="text" id="edit-notes" value="${rec.notes || ''}" class="w-full px-2 py-1 mt-1 text-sm border rounded outline-none"></div>
-                        </div>
-                    `, () => this.submitAdminEdit(id));
-                }
-            },
-
-            showChangePasswordModal() {
-                this.showGenericModal("Change Password", `
-                    <div>
-                        <label class="block text-sm font-medium mb-1">New Password</label>
-                        <input type="password" id="pass-new" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                `, () => this.updatePassword());
-            },
-
-            showGenericModal(title, htmlContent, submitCallback) {
-                document.getElementById('modal-form-title').innerText = title;
-                document.getElementById('modal-form-content').innerHTML = htmlContent;
-                document.getElementById('modal-form-submit').onclick = submitCallback;
-                const m = document.getElementById('modal-form');
-                m.classList.remove('hidden'); m.classList.add('flex');
-            },
-
-            showAlert(title, message, isError = false) {
-                document.getElementById('modal-alert-title').innerText = title;
-                document.getElementById('modal-alert-title').className = `text-lg font-bold mb-2 ${isError ? 'text-red-600' : 'text-slate-800'}`;
-                document.getElementById('modal-alert-message').innerText = message;
-                const m = document.getElementById('modal-alert');
-                m.classList.remove('hidden'); m.classList.add('flex');
-            },
-
-            closeModal(id) {
-                document.getElementById(id).classList.add('hidden');
-                document.getElementById(id).classList.remove('flex');
-            },
-
-            switchTab(selectedTab) {
-                const tabs = ['personal', 'admin', 'all-records', 'manage-users', 'demo'];
-                tabs.forEach(t => {
-                    const content = document.getElementById(`tab-content-${t}`);
-                    const btn = document.getElementById(`tab-btn-${t}`);
-                    if (!btn) return;
-                    if (t === selectedTab) {
-                        content?.classList.remove('hidden');
-                        btn.className = btn.className.replace('tab-inactive', 'tab-active');
+                    const snap = await getDoc(docPath('users', username));
+                    if(snap.exists() && snap.data().password === pass) {
+                        this.profile = snap.data();
+                        localStorage.setItem('pm_session_username', username);
+                        this.setupListeners();
+                        this.showDashboard();
                     } else {
-                        content?.classList.add('hidden');
-                        btn.className = btn.className.replace('tab-active', 'tab-inactive');
+                        this.showModal('Login Failed', 'Invalid username or password.');
                     }
-                });
+                } catch(e) {
+                    this.showModal('Error', 'Database connection failed.');
+                }
             },
 
-            // --- RENDER FUNCTIONS ---
-            renderWeeklySummary() {
-                const now = this.getRealTime();
-                const day = now.getDay() || 7;
-                const monday = new Date(now);
-                monday.setDate(monday.getDate() - day + 1);
-                monday.setHours(0,0,0,0);
-                
-                const thisWeek = this.records.filter(r => r.empEmail === this.currentUser.email && new Date(r.dateStr) >= monday);
-                
-                let totalHrs = 0; let otHrs = 0; let leaves = 0;
-                thisWeek.forEach(r => {
-                    let adjustedWorkHours = r.workHours || 0;
-                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
-                        adjustedWorkHours += r.offsetHours;
-                    }
-                    totalHrs += adjustedWorkHours;
+            setupListeners() {
+                if(!this.user) return;
+                this.unsubs.forEach(fn => fn()); this.unsubs = [];
 
-                    if(r.otStatus === 'APPROVED') otHrs += r.otHours || 0;
-                    if(r.leaveStatus === 'APPROVED' || r.timeIn === 'LEAVE') leaves++;
-                });
-                
-                document.getElementById('sum-hrs').innerText = totalHrs.toFixed(2);
-                document.getElementById('sum-ot').innerText = otHrs.toFixed(2);
-                const sumLeavesEl = document.getElementById('sum-leaves');
-                if (sumLeavesEl) sumLeavesEl.innerText = leaves;
+                this.unsubs.push(onSnapshot(docPath('settings', 'company'), snap => {
+                    if(snap.exists()) {
+                        this.companySettings = snap.data();
+                        const nameEl = document.getElementById('settings-company-name');
+                        const addrEl = document.getElementById('settings-company-address');
+                        const logoEl = document.getElementById('settings-logo-preview');
+                        if(nameEl) nameEl.value = this.companySettings.name || 'PHC CORPORATION';
+                        if(addrEl) addrEl.value = this.companySettings.address || '';
+                        if(logoEl && this.companySettings.logo_url) logoEl.innerHTML = `<img src="${this.companySettings.logo_url}" class="max-w-full max-h-full object-contain">`;
+                    }
+                }));
+
+                this.unsubs.push(onSnapshot(collPath('projects'), snap => {
+                    this.projects = []; snap.forEach(d => this.projects.push({id: d.id, ...d.data()}));
+                    this.renderProjects();
+                    this.populateProjectSelects();
+                    if(this.profile.role === 'admin') this.renderAdminRoster();
+                }));
+                this.unsubs.push(onSnapshot(collPath('employees'), snap => {
+                    this.employees = []; snap.forEach(d => this.employees.push({id: d.id, ...d.data()}));
+                    if(this.activeProjectId) this.renderRoster();
+                    if(this.profile.role === 'admin') this.renderAdminRoster();
+                }));
+                this.unsubs.push(onSnapshot(collPath('timesheets'), snap => {
+                    this.timesheets = []; snap.forEach(d => this.timesheets.push({id: d.id, ...d.data()}));
+                    if(this.activeProjectId) {
+                        this.renderRoster();
+                        this.renderTimesheetEdit();
+                    }
+                    if(this.profile.role === 'admin') this.renderAllRecordsTable();
+                }));
+                if(this.profile.role === 'admin') {
+                    this.unsubs.push(onSnapshot(collPath('users'), snap => {
+                        this.users = []; snap.forEach(d => this.users.push({id: d.id, ...d.data()}));
+                        this.renderUsers();
+                    }));
+                }
             },
 
-            renderTimesheet() {
-                const tbody = document.getElementById('timesheet-body');
+            showView(viewId) {
+                ['view-loading', 'view-login', 'view-dashboard'].forEach(v => document.getElementById(v).classList.add('hidden'));
+                document.getElementById(viewId).classList.remove('hidden');
+                document.getElementById(viewId).classList.add('flex');
+            },
+
+            showDashboard() {
+                this.showView('view-dashboard');
+                document.getElementById('user-profile').classList.replace('hidden', 'flex');
+                document.getElementById('nav-user-name').innerText = this.profile.name;
+                document.getElementById('dash-user-name').innerText = this.profile.name;
+                document.getElementById('nav-user-role').innerText = this.profile.role;
+
+                const tabs = ['pm-roster', 'pm-timesheet'];
+                if(this.profile.role === 'admin') tabs.push('admin-projects', 'admin-roster', 'admin-all-records', 'admin-users', 'admin-settings', 'admin-demo');
+
+                document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => btn.classList.add('hidden'));
+                tabs.forEach(t => {
+                    const btn = document.getElementById(`tab-btn-${t}`);
+                    if(btn) btn.classList.remove('hidden');
+                });
+
+                if(this.profile.role === 'admin') this.switchTab('admin-roster');
+                else {
+                    document.getElementById('pm-project-selector').classList.replace('hidden', 'flex');
+                    this.switchTab('pm-roster');
+                }
+            },
+
+            switchTab(tabId) {
+                document.querySelectorAll('[id^="tab-content-"]').forEach(el => el.classList.add('hidden'));
+                document.querySelectorAll('[id^="tab-btn-"]').forEach(btn => btn.className = btn.className.replace('tab-active', 'tab-inactive'));
+                
+                const content = document.getElementById(`tab-content-${tabId}`);
+                const btn = document.getElementById(`tab-btn-${tabId}`);
+                if(content) content.classList.remove('hidden');
+                if(btn) btn.className = btn.className.replace('tab-inactive', 'tab-active');
+            },
+
+            // --- PROJECT SELECTION & GPS ---
+            populateProjectSelects() {
+                const pSel = document.getElementById('pm-select-project');
+                const fSel = document.getElementById('filter-project');
+                const rSel = document.getElementById('admin-roster-project-filter');
+                const opts = `<option value="">-- All / Select Project --</option>` + this.projects.map(p => `<option value="${p.id}">${p.name} (${p.number})</option>`).join('');
+                if(pSel && !this.activeProjectId) pSel.innerHTML = opts;
+                if(fSel) fSel.innerHTML = opts;
+                if(rSel && rSel.options.length <= 1) rSel.innerHTML = opts;
+            },
+
+            async validateGPS() {
+                const pid = document.getElementById('pm-select-project').value;
+                if(!pid) return this.showModal('Notice', 'Please select a project first.');
+                const proj = this.projects.find(p => p.id === pid);
+                if(!proj || !proj.lat || !proj.lng) return this.showModal('Error', 'Project coordinates not configured by admin.');
+
+                this.showModal('Verifying Location', 'Please wait while we acquire your GPS coordinates...', false);
+
+                if (!navigator.geolocation) return this.showModal('Error', 'Geolocation is not supported by your browser.');
+
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        const dist = this.haversineDistance(pos.coords.latitude, pos.coords.longitude, parseFloat(proj.lat), parseFloat(proj.lng));
+                        if(dist <= 3000) { 
+                            this.activeProjectId = pid;
+                            document.getElementById('modal-container').classList.add('hidden');
+                            document.getElementById('pm-project-selector').classList.replace('flex', 'hidden');
+                            document.getElementById('roster-locked-view').classList.replace('hidden', 'flex');
+                            document.getElementById('roster-project-name').innerText = proj.name;
+                            this.renderRoster();
+                            this.renderTimesheetEdit();
+                        } else {
+                            this.showModal('Access Denied', `You are ${Math.round(dist)} meters away from the site. Must be within 3,000 meters.`);
+                        }
+                    },
+                    (err) => { this.showModal('GPS Error', `Failed to get location: ${err.message}. Please allow location access.`); },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            },
+
+            haversineDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371e3;
+                const f1 = lat1 * Math.PI/180;
+                const f2 = lat2 * Math.PI/180;
+                const df = (lat2-lat1) * Math.PI/180;
+                const dl = (lon2-lon1) * Math.PI/180;
+                const a = Math.sin(df/2) * Math.sin(df/2) + Math.cos(f1) * Math.cos(f2) * Math.sin(dl/2) * Math.sin(dl/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            },
+
+            // --- PM ROSTER BULK ACTIONS ---
+            getTodayDateStr() {
+                const d = this.getRealTime();
+                return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            },
+
+            renderRoster() {
+                if(!this.activeProjectId) return;
+                const todayStr = this.getTodayDateStr();
+                const tbody = document.getElementById('roster-body');
                 tbody.innerHTML = '';
-                const userRecords = this.records.filter(r => r.empEmail === this.currentUser.email).sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr));
+
+                const emps = this.employees.filter(e => e.project_id === this.activeProjectId);
+                if(emps.length === 0) return tbody.innerHTML = `<tr><td colspan=\"6\" class=\"px-6 py-4 text-center\">No employees found for this project.</td></tr>`;
+
+                emps.forEach(emp => {
+                    const logId = `${emp.id}_${todayStr}`;
+                    const log = this.timesheets.find(t => t.id === logId);
+                    const loggedMsg = log && (log.am_in || log.pm_in) ? `<span class=\"text-[10px] ml-2 bg-green-100 text-green-700 px-1 rounded uppercase\">Logged</span>` : '';
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b">
+                            <td class="px-6 py-3 text-center"><input type="checkbox" class="roster-chk w-4 h-4 text-blue-600 rounded" value="${emp.id}" checked></td>
+                            <td class="px-6 py-3 font-medium">${emp.emp_id}</td>
+                            <td class="px-6 py-3">${emp.name} ${loggedMsg}</td>
+                            <td class="px-6 py-3 text-sm">${emp.job_category || '-'}</td>
+                            <td class="px-6 py-3 text-sm">${emp.type || 'Regular'}</td>
+                            <td class="px-6 py-3 text-xs font-mono text-slate-500">${emp.cost_code_1 || '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('check-all-roster').onchange = (e) => {
+                    document.querySelectorAll('.roster-chk').forEach(c => c.checked = e.target.checked);
+                };
+            },
+
+            async bulkAction(type) {
+                if(!this.activeProjectId) return;
+                const checked = Array.from(document.querySelectorAll('.roster-chk:checked')).map(c => c.value);
+                if(checked.length === 0) return this.showModal('Notice', 'No employees selected.');
+
+                const todayStr = this.getTodayDateStr();
+                const nowTime = this.getRealTime().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit'});
+
+                try {
+                    const batch = writeBatch(db);
+                    for(const empId of checked) {
+                        const emp = this.employees.find(e => e.id === empId);
+                        const docId = `${empId}_${todayStr}`;
+                        const ref = docPath('timesheets', docId);
+                        
+                        let data = this.timesheets.find(t => t.id === docId);
+                        if(!data) data = { project_id: this.activeProjectId, emp_id: empId, date: todayStr, am_in: '', am_out: '', pm_in: '', pm_out: '', cost_code_used: emp.cost_code_1, total_hrs: 0 };
+
+                        if(type === 'AM_IN' && !data.am_in) data.am_in = nowTime;
+                        if(type === 'AM_OUT' && !data.am_out) data.am_out = nowTime;
+                        if(type === 'PM_IN' && !data.pm_in) data.pm_in = nowTime;
+                        if(type === 'PM_OUT' && !data.pm_out) data.pm_out = nowTime;
+
+                        data.total_hrs = this.calculateHours(data.am_in, data.am_out) + this.calculateHours(data.pm_in, data.pm_out);
+                        batch.set(ref, data, {merge: true});
+                    }
+
+                    await batch.commit();
+                    this.showModal('Success', `Bulk ${type.replace('_', ' ')} applied successfully to ${checked.length} employees at ${nowTime}.`);
+                } catch(e) { console.error(e); this.showModal('Error', 'Failed to save bulk action to database.'); }
+            },
+
+            // --- PM REVIEW & EDIT TIMESHEET ---
+            renderTimesheetEdit() {
+                if(!this.activeProjectId) return;
+                const todayStr = this.getTodayDateStr();
+                const tbody = document.getElementById('timesheet-edit-body');
+                tbody.innerHTML = '';
+
+                const emps = this.employees.filter(e => e.project_id === this.activeProjectId).sort((a,b) => a.name.localeCompare(b.name));
                 
-                if(userRecords.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-8 text-center text-slate-500">No records found.</td></tr>`;
+                emps.forEach(emp => {
+                    const docId = `${emp.id}_${todayStr}`;
+                    const log = this.timesheets.find(t => t.id === docId) || { am_in:'', am_out:'', pm_in:'', pm_out:'', cost_code_used: emp.cost_code_1 };
+
+                    const ccOpts = `<option value="${emp.cost_code_1}" ${log.cost_code_used===emp.cost_code_1?'selected':''}>${emp.cost_code_1}</option>
+                                    ${emp.cost_code_2 ? `<option value="${emp.cost_code_2}" ${log.cost_code_used===emp.cost_code_2?'selected':''}>${emp.cost_code_2}</option>` : ''}`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b" id="row-${docId}">
+                            <td class="px-4 py-2 font-medium">${emp.emp_id}</td>
+                            <td class="px-4 py-2 text-sm">${emp.name}</td>
+                            <td class="px-4 py-2"><input type="time" class="edit-in border rounded px-1 py-0.5 w-24 text-sm" value="${log.am_in}"></td>
+                            <td class="px-4 py-2"><input type="time" class="edit-out border rounded px-1 py-0.5 w-24 text-sm" value="${log.am_out}"></td>
+                            <td class="px-4 py-2"><input type="time" class="edit-in2 border rounded px-1 py-0.5 w-24 text-sm" value="${log.pm_in}"></td>
+                            <td class="px-4 py-2"><input type="time" class="edit-out2 border rounded px-1 py-0.5 w-24 text-sm" value="${log.pm_out}"></td>
+                            <td class="px-4 py-2"><select class="edit-cc border rounded px-1 py-0.5 text-xs w-full max-w-[120px]">${ccOpts}</select></td>
+                            <td class="px-4 py-2"><button onclick="app.saveSingleLog('${emp.id}', '${docId}')" class="bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1 rounded text-xs font-bold border border-indigo-200">SAVE</button></td>
+                        </tr>
+                    `;
+                });
+            },
+
+            async saveSingleLog(empId, docId) {
+                const row = document.getElementById(`row-${docId}`);
+                const am_in = row.querySelector('.edit-in').value;
+                const am_out = row.querySelector('.edit-out').value;
+                const pm_in = row.querySelector('.edit-in2').value;
+                const pm_out = row.querySelector('.edit-out2').value;
+                const cc = row.querySelector('.edit-cc').value;
+
+                const total = this.calculateHours(am_in, am_out) + this.calculateHours(pm_in, pm_out);
+                
+                try {
+                    await setDoc(docPath('timesheets', docId), {
+                        project_id: this.activeProjectId, emp_id: empId, date: this.getTodayDateStr(),
+                        am_in, am_out, pm_in, pm_out, cost_code_used: cc, total_hrs: total
+                    }, {merge: true});
+                    const btn = row.querySelector('button');
+                    const origText = btn.innerText;
+                    btn.innerText = "SAVED!"; btn.classList.replace('text-indigo-700','text-green-700');
+                    setTimeout(() => { btn.innerText = origText; btn.classList.replace('text-green-700','text-indigo-700'); }, 1500);
+                } catch(e) { this.showModal('Error', 'Failed to save record.'); }
+            },
+
+            calculateHours(inStr, outStr) {
+                if(!inStr || !outStr) return 0;
+                let [ih, im] = inStr.split(':').map(Number);
+                let [oh, om] = outStr.split(':').map(Number);
+                let mins = (oh*60 + om) - (ih*60 + im);
+                if(mins < 0) mins += 24*60;
+                return Math.round((mins/60)*100)/100;
+            },
+
+            // --- ADMIN: MANAGE ROSTER ---
+            renderAdminRoster() {
+                const tbody = document.getElementById('admin-roster-body');
+                if(!tbody) return;
+                tbody.innerHTML = '';
+                
+                const filterPid = document.getElementById('admin-roster-project-filter')?.value;
+                let emps = this.employees;
+                if(filterPid) emps = emps.filter(e => e.project_id === filterPid);
+
+                emps.sort((a,b) => a.name.localeCompare(b.name));
+
+                if(emps.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">No employees found.</td></tr>`;
                     return;
                 }
 
-                userRecords.forEach(r => {
-                    let b1 = r.otStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">OT Pen</span> ' : r.otStatus === 'APPROVED' ? '<span class="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">OT Aprv</span> ' : '';
-                    let b2 = r.offsetStatus === 'PENDING' ? '<span class="bg-indigo-100 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Pen</span> ' : r.offsetStatus === 'APPROVED' ? '<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Off Aprv</span> ' : '';
-                    let b3 = r.leaveStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Pen</span> ' : r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Lv Aprv</span> ' : '';
+                emps.forEach(e => {
+                    const proj = this.projects.find(p => p.id === e.project_id);
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition border-b">
+                            <td class="px-4 py-3 text-slate-700 max-w-[150px] truncate">${proj ? proj.name : 'Unknown Project'}</td>
+                            <td class="px-4 py-3 font-medium">${e.emp_id}</td>
+                            <td class="px-4 py-3 font-semibold text-slate-800">${e.name}</td>
+                            <td class="px-4 py-3 text-slate-600">${e.job_category || '-'}</td>
+                            <td class="px-4 py-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${e.type==='Regular'?'bg-blue-100 text-blue-700':(e.type==='Local'?'bg-emerald-100 text-emerald-700':'bg-amber-100 text-amber-700')}">${e.type || 'Regular'}</span></td>
+                            <td class="px-4 py-3 text-xs font-mono text-slate-500">${e.cost_code_1||'-'} / ${e.cost_code_2||'-'}</td>
+                            <td class="px-4 py-3 text-right space-x-2">
+                                <button onclick="app.editEmployee('${e.id}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded text-xs font-bold border border-blue-200">EDIT</button>
+                                <button onclick="app.deleteEmployee('${e.id}')" class="text-rose-600 hover:text-rose-800 bg-rose-50 px-2 py-1 rounded text-xs font-bold border border-rose-200">DEL</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            },
 
-                    let displayWorkHours = r.workHours || 0;
-                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
-                        displayWorkHours += r.offsetHours;
+            editEmployee(id) {
+                const emp = id ? this.employees.find(x => x.id === id) : { project_id: '', emp_id: '', name: '', job_category: '', type: 'Regular', cost_code_1: '', cost_code_2: '' };
+                const projOptions = this.projects.map(p => `<option value="${p.id}" ${p.id===emp.project_id?'selected':''}>${p.name}</option>`).join('');
+
+                this.showFormModal(id ? 'Edit Employee Data' : 'Add New Employee', `
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Assigned Project</label>
+                            <select id="fe-proj" class="w-full px-3 py-2 border rounded outline-none mt-1"><option value="">-- Select --</option>${projOptions}</select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Employee ID</label>
+                            <input type="text" id="fe-eid" value="${emp.emp_id}" class="w-full px-3 py-2 border rounded outline-none mt-1" ${id ? 'readonly' : ''}>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Full Name</label>
+                            <input type="text" id="fe-name" value="${emp.name}" class="w-full px-3 py-2 border rounded outline-none mt-1">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Category</label>
+                            <input type="text" id="fe-cat" value="${emp.job_category}" class="w-full px-3 py-2 border rounded outline-none mt-1">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Type</label>
+                            <select id="fe-type" class="w-full px-3 py-2 border rounded outline-none mt-1">
+                                <option value="Regular" ${emp.type==='Regular'?'selected':''}>Regular</option>
+                                <option value="Local" ${emp.type==='Local'?'selected':''}>Local</option>
+                                <option value="Other Location" ${emp.type==='Other Location'?'selected':''}>Other Location</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Primary Cost Code</label>
+                            <input type="text" id="fe-cc1" value="${emp.cost_code_1}" class="w-full px-3 py-2 border rounded outline-none mt-1">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase">Secondary CC</label>
+                            <input type="text" id="fe-cc2" value="${emp.cost_code_2}" class="w-full px-3 py-2 border rounded outline-none mt-1">
+                        </div>
+                    </div>
+                `, async () => {
+                    const eId = document.getElementById('fe-eid').value.trim();
+                    const pId = document.getElementById('fe-proj').value;
+                    const name = document.getElementById('fe-name').value.trim();
+                    
+                    if(!eId || !pId || !name) return this.showModal('Error', 'Project, Employee ID, and Name are strictly required.');
+
+                    const safeId = eId.replace(/\W/g, ''); // Ensure safe document ID
+                    try {
+                        await setDoc(docPath('employees', safeId), {
+                            project_id: pId, emp_id: eId, name: name, 
+                            job_category: document.getElementById('fe-cat').value.trim(),
+                            type: document.getElementById('fe-type').value,
+                            cost_code_1: document.getElementById('fe-cc1').value.trim(),
+                            cost_code_2: document.getElementById('fe-cc2').value.trim()
+                        }, {merge:true});
+                        this.hideModal();
+                    } catch(e) { this.showModal('Error', 'Failed to save employee.'); }
+                });
+            },
+
+            deleteEmployee(id) {
+                this.showFormModal('Confirm Deletion', 'Are you sure you want to remove this employee from the roster? Note: Their historical timesheet records will NOT be deleted.', async () => {
+                    try {
+                        await deleteDoc(docPath('employees', id));
+                        this.hideModal();
+                    } catch(e) { this.showModal('Error', 'Failed to delete employee.'); }
+                });
+            },
+
+            // --- ADMIN: PROJECTS ---
+            renderProjects() {
+                const c = document.getElementById('projects-list-container');
+                if(!c) return;
+                c.innerHTML = '';
+                this.projects.forEach(p => {
+                    c.innerHTML += `
+                        <div class="border border-slate-200 rounded-lg p-4 bg-slate-50 flex flex-col relative">
+                            <h4 class="font-bold text-slate-800 text-lg">${p.name}</h4>
+                            <p class="text-xs text-slate-500 mb-3">Project #: ${p.number}</p>
+                            <p class="text-sm mb-1"><strong>Lat:</strong> ${p.lat || 'N/A'}</p>
+                            <p class="text-sm mb-1"><strong>Lng:</strong> ${p.lng || 'N/A'}</p>
+                            <button onclick="app.editProject('${p.id}')" class="mt-4 bg-white border border-slate-300 px-3 py-1.5 rounded text-sm font-medium hover:bg-slate-100">Edit Details</button>
+                        </div>
+                    `;
+                });
+            },
+
+            editProject(id) {
+                const p = id ? this.projects.find(x=>x.id===id) : {name:'', number:'', lat:'', lng:''};
+                this.showFormModal(id ? 'Edit Project' : 'New Project', `
+                    <input type="text" id="fp-name" placeholder="Project Name" value="${p.name}" class="w-full px-3 py-2 border rounded mb-3 outline-none">
+                    <input type="text" id="fp-num" placeholder="Project Number" value="${p.number}" class="w-full px-3 py-2 border rounded mb-3 outline-none">
+                    <div class="flex gap-3 mb-1">
+                        <input type="text" id="fp-lat" placeholder="Latitude (e.g. 15.123)" value="${p.lat}" class="w-1/2 px-3 py-2 border rounded outline-none">
+                        <input type="text" id="fp-lng" placeholder="Longitude (e.g. 120.456)" value="${p.lng}" class="w-1/2 px-3 py-2 border rounded outline-none">
+                    </div>
+                `, async () => {
+                    const data = {
+                        name: document.getElementById('fp-name').value, number: document.getElementById('fp-num').value,
+                        lat: document.getElementById('fp-lat').value, lng: document.getElementById('fp-lng').value
+                    };
+                    if(!data.name) return;
+                    try {
+                        const ref = id ? docPath('projects', id) : doc(collPath('projects'));
+                        await setDoc(ref, data, {merge:true});
+                        this.hideModal();
+                    } catch(e) { this.showModal('Error', 'Failed to save project.'); }
+                });
+            },
+
+            // --- EXCEL / CSV UPLOAD ENGINE ---
+            handleFileUpload(e) {
+                const file = e.target.files[0];
+                if(!file) return;
+
+                this.showModal('Processing Data', 'Reading file... please wait.', false);
+
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const data = event.target.result;
+                    try {
+                        // Parse using SheetJS (works for .xlsx, .xls, and .csv natively)
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Convert to JSON (Array of Arrays, skipping the header line manually later)
+                        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                        this.processExcelData(rows);
+                    } catch (err) {
+                        console.error(err);
+                        this.showModal('Error', 'Failed to parse file. Make sure it is a valid Excel or CSV file.');
+                    }
+                };
+                
+                // Read as ArrayBuffer which handles binary Excel files perfectly
+                reader.readAsArrayBuffer(file);
+                e.target.value = ''; 
+            },
+
+            async processExcelData(rows) {
+                if(rows.length < 2) return this.showModal('Error', 'File seems empty or invalid.');
+                
+                this.showModal('Processing Data', 'Updating database... please wait.', false);
+                
+                try {
+                    const batch = writeBatch(db);
+                    let projCache = {}; 
+                    
+                    // Skip header row (i=1)
+                    for(let i=1; i<rows.length; i++) {
+                        // Ensure all columns are cast to strings and trimmed
+                        const cols = rows[i].map(c => String(c || '').trim());
+                        if(cols.length < 6) continue;
+                        
+                        // Specific Format: Project Name, Employee ID, Employee Name, Category, Type, PRIMARY CC, SECONDARY CC
+                        const [pName, eId, eName, jobCat, typeRaw, cc1, cc2] = cols;
+                        if(!pName || !eName || !eId) continue;
+
+                        let type = 'Regular';
+                        if(typeRaw) {
+                            const tL = typeRaw.toLowerCase();
+                            if(tL.includes('local')) type = 'Local';
+                            else if(tL.includes('other')) type = 'Other Location';
+                        }
+
+                        let projId = projCache[pName];
+                        if(!projId) {
+                            let existP = this.projects.find(p => p.name.toLowerCase() === pName.toLowerCase());
+                            if(existP) projId = existP.id;
+                            else {
+                                const newPref = doc(collPath('projects'));
+                                projId = newPref.id;
+                                batch.set(newPref, { name: pName, number: '', lat: '', lng: ''});
+                                this.projects.push({id: projId, name: pName}); 
+                            }
+                            projCache[pName] = projId;
+                        }
+
+                        const safeEmpId = eId.replace(/\W/g, ''); 
+                        const empRef = docPath('employees', safeEmpId);
+                        batch.set(empRef, {
+                            project_id: projId, emp_id: eId, name: eName, 
+                            job_category: jobCat || '', type: type, cost_code_1: cc1 || '', cost_code_2: cc2 || ''
+                        }, {merge: true});
                     }
 
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition";
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 font-medium text-slate-900">${r.dateStr}</td>
-                        <td class="px-4 py-3">${r.timeIn || '-'}</td>
-                        <td class="px-4 py-3 text-slate-500">${r.breakIn || '-'} / ${r.breakOut || '-'}</td>
-                        <td class="px-4 py-3">${r.timeOut || '-'}</td>
-                        <td class="px-4 py-3 text-purple-600 font-medium">${r.otIn || '-'} / ${r.otOut || '-'}</td>
-                        <td class="px-4 py-3 text-indigo-600 font-medium">${r.offsetIn || '-'} / ${r.offsetOut || '-'}</td>
-                        <td class="px-4 py-3 font-bold">${displayWorkHours.toFixed(2)}</td>
-                        <td class="px-4 py-3 font-bold ${r.otHours > 0 ? 'text-purple-700' : (r.otHours < 0 ? 'text-rose-600' : 'text-slate-500')}">${r.otHours.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-xs text-slate-600 truncate max-w-[200px]" title="${r.notes}">${r.notes || ''} <br> ${b1}${b2}${b3}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                    await batch.commit();
+                    this.hideModal();
+                    this.showModal('Success', 'Roster Data successfully imported and synchronized from Excel/CSV.');
+                } catch(err) {
+                    console.error(err);
+                    this.showModal('Error', 'Failed to process file data.');
+                }
             },
 
-            getPendingRequests() {
-                let pending = [];
-                this.records.forEach(r => {
-                    if (r.otStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Overtime', details: `${r.otHours.toFixed(2)} hrs`, key: 'otStatus' });
-                    if (r.offsetStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Offset', details: `${r.offsetHours ? r.offsetHours.toFixed(2) : 0} hrs`, key: 'offsetStatus' });
-                    if (r.leaveStatus === 'PENDING') pending.push({ recId: r.id, empEmail: r.empEmail, dateStr: r.dateStr, type: 'Leave', details: r.notes, key: 'leaveStatus' });
-                });
-                return pending;
+            // --- ADVANCED PDF PRINT ENGINE ---
+            chunkArray(arr, size) {
+                const chunked = [];
+                for (let i = 0; i < arr.length; i += size) {
+                    chunked.push(arr.slice(i, i + size));
+                }
+                return chunked;
             },
 
-            updatePendingBadge() {
-                if(!this.currentUser || !this.currentUser.isAdmin) return;
-                const count = this.getPendingRequests().length;
-                const badge = document.getElementById('pending-badge');
-                if(count > 0) { badge.innerText = count; badge.classList.remove('hidden'); } 
-                else { badge.classList.add('hidden'); }
+            generateEmployeePrintRow(emp, num, log) {
+                return `
+                    <tr>
+                        <td>${num}</td>
+                        <td>${emp.emp_id}</td>
+                        <td>${log.cost_code_used || ''}</td>
+                        <td style="text-align:left;">${emp.name}</td>
+                        <td>${log.am_in||''}</td>
+                        <td>${log.am_out||''}</td>
+                        <td></td> <!-- EE INITIAL -->
+                        <td>${log.pm_in||''}</td>
+                        <td>${log.pm_out||''}</td>
+                        <td>${(log.total_hrs||0).toFixed(2)}</td>
+                        <td></td> <!-- EE SIGNATURE -->
+                    </tr>
+                `;
             },
 
-            renderAdminTable() {
-                const tbody = document.getElementById('admin-body');
-                tbody.innerHTML = '';
-                const pending = this.getPendingRequests();
+            createPrintPageHTML(proj, compName, compAddr, compLogo, todayStr, rowsHTML) {
+                return `
+                <div class="print-page">
+                    <div class="print-header">
+                        <div class="print-logo-box">
+                            ${compLogo ? `<img src="${compLogo}" style="max-width:100%; max-height:100%;">` : 'LOGO HERE'}
+                        </div>
+                        <div class="print-company-info">
+                            <strong>${compName}</strong><br>
+                            <div style="white-space: pre-wrap;">${compAddr}</div>
+                        </div>
+                        <div style="width:100px;"></div> <!-- Spacer -->
+                    </div>
+                    
+                    <div class="print-meta">
+                        <div class="print-meta-row"><span class="print-meta-label">DATE:</span> ${todayStr}</div>
+                        <div class="print-meta-row"><span class="print-meta-label">PROJECT TITLE:</span> ${proj.name}</div>
+                        <div class="print-meta-row"><span class="print-meta-label">PROJECT NUMBER:</span> ${proj.number || ''}</div>
+                    </div>
+
+                    <div class="print-title">DAILY TIME RECORD</div>
+
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2" style="width:30px;">NO</th>
+                                <th rowspan="2" style="width:60px;">Employee<br>ID</th>
+                                <th rowspan="2" style="width:80px;">COST CODE</th>
+                                <th rowspan="2" style="width:180px;">NAME</th>
+                                <th colspan="2">AM</th>
+                                <th rowspan="2">EE INITIAL<br>OR<br>SIGNATURE</th>
+                                <th colspan="2">PM</th>
+                                <th rowspan="2">TOTAL HRS</th>
+                                <th rowspan="2">EE SIGNATURE<br>I certify that the total hours<br>opposite my name are correct</th>
+                            </tr>
+                            <tr>
+                                <th style="width:50px;">IN</th><th style="width:50px;">OUT</th>
+                                <th style="width:50px;">IN</th><th style="width:50px;">OUT</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHTML}
+                        </tbody>
+                    </table>
+
+                    <div class="footer-notes">
+                        <p><strong>NOTE:</strong><br>1. Please make sure that all entries in this DTR are complete and final before submitting to Payroll-In-Charge.<br>2. This should always be submitted to Payroll-In-Charge at the end of the day.</p>
+                        <br><br>
+                        <p>I certify and approve that the above time record of Employees (EE) are true and correct.</p>
+                        <br><br>
+                        <div style="display:flex; justify-content:space-between; margin-top:30px; border-top: 1px solid black; padding-top:5px; width:40%;">
+                            <span>PROJECT SUPERINTENDENT<br>(PRINTED NAME AND SIGNATURE)</span>
+                        </div>
+                    </div>
+                </div>`;
+            },
+
+            generatePrintView() {
+                if(!this.activeProjectId) return;
+                const proj = this.projects.find(p => p.id === this.activeProjectId);
+                const todayStr = this.getTodayDateStr();
+                const pa = document.getElementById('print-area');
+                pa.innerHTML = '';
                 
-                if(pending.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No pending requests queue is clear.</td></tr>`;
-                    return;
+                const compName = this.companySettings.name || 'PHC CORPORATION';
+                const compAddr = this.companySettings.address || 'Company Address Not Set';
+                const compLogo = this.companySettings.logo_url;
+
+                const emps = this.employees.filter(e => e.project_id === this.activeProjectId).sort((a,b) => a.name.localeCompare(b.name));
+                
+                // Helper to get log for an employee
+                const getLog = (empId) => this.timesheets.find(t => t.id === `${empId}_${todayStr}`) || { am_in:'', am_out:'', pm_in:'', pm_out:'', total_hrs:0, cost_code_used: '' };
+
+                let finalPagesHTML = '';
+
+                // 1. Process "Regular" (Max 30 per page, chunked PER category)
+                const regularEmps = emps.filter(e => e.type === 'Regular');
+                const categories = [...new Set(regularEmps.map(e => e.job_category || 'UNASSIGNED'))];
+                
+                categories.forEach(cat => {
+                    const catEmps = regularEmps.filter(e => (e.job_category || 'UNASSIGNED') === cat);
+                    const chunks = this.chunkArray(catEmps, 30);
+                    chunks.forEach(chunk => {
+                        let rows = `<tr><td colspan="12" class="job-category-row">${cat} - Regular</td></tr>`;
+                        chunk.forEach((emp, idx) => {
+                            rows += this.generateEmployeePrintRow(emp, idx + 1, getLog(emp.id));
+                        });
+                        finalPagesHTML += this.createPrintPageHTML(proj, compName, compAddr, compLogo, todayStr, rows);
+                    });
+                });
+
+                // 2. Process "Local" (Max 15 per page, combined categories, category header row injected)
+                const localEmps = emps.filter(e => e.type === 'Local').sort((a,b) => (a.job_category||'').localeCompare(b.job_category||''));
+                if(localEmps.length > 0) {
+                    const chunks = this.chunkArray(localEmps, 15);
+                    chunks.forEach(chunk => {
+                        let rows = '';
+                        let currentCat = null;
+                        chunk.forEach((emp, idx) => {
+                            const empCat = emp.job_category || 'UNASSIGNED';
+                            if(empCat !== currentCat) {
+                                currentCat = empCat;
+                                rows += `<tr><td colspan="12" class="job-category-row">${currentCat} - Local</td></tr>`;
+                            }
+                            rows += this.generateEmployeePrintRow(emp, idx + 1, getLog(emp.id));
+                        });
+                        finalPagesHTML += this.createPrintPageHTML(proj, compName, compAddr, compLogo, todayStr, rows);
+                    });
                 }
 
-                pending.forEach(r => {
-                    let typeColor = 'bg-slate-100 text-slate-700';
-                    if (r.type === 'Overtime') typeColor = 'bg-purple-100 text-purple-700';
-                    if (r.type === 'Offset') typeColor = 'bg-indigo-100 text-indigo-700';
-                    if (r.type === 'Leave') typeColor = 'bg-emerald-100 text-emerald-700';
-
-                    const typeBadge = `<span class="px-2 py-1 rounded text-xs font-bold uppercase ${typeColor}">${r.type}</span>`;
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition";
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-slate-900">${r.empEmail}</td>
-                        <td class="px-6 py-4">${r.dateStr}</td>
-                        <td class="px-6 py-4">${typeBadge}</td>
-                        <td class="px-6 py-4 font-bold text-slate-700 truncate max-w-xs" title="${r.details}">${r.details}</td>
-                        <td class="px-6 py-4 text-right space-x-2">
-                            <button onclick="window.sysProcessApproval('${r.recId}', '${r.key}', 'approve')" class="px-3 py-1.5 bg-green-100 text-green-700 hover:bg-green-200 rounded font-medium transition text-xs shadow-sm">Approve</button>
-                            <button onclick="window.sysProcessApproval('${r.recId}', '${r.key}', 'disapprove')" class="px-3 py-1.5 bg-red-100 text-red-700 hover:bg-red-200 rounded font-medium transition text-xs shadow-sm">Deny</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            },
-
-            getFilteredRecords() {
-                let filtered = [...this.records];
-                const start = document.getElementById('filter-start').value;
-                const end = document.getElementById('filter-end').value;
-                if (start) filtered = filtered.filter(r => new Date(r.dateStr) >= new Date(start));
-                if (end) filtered = filtered.filter(r => new Date(r.dateStr) <= new Date(end));
-                return filtered.sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr));
-            },
-
-            renderAllRecordsTable() {
-                const tbody = document.getElementById('all-records-body');
-                tbody.innerHTML = '';
-                const records = this.getFilteredRecords();
-                
-                const uniqueDates = [...new Set(records.map(r => r.dateStr))];
-                const totalPages = Math.ceil(uniqueDates.length / this.daysPerPage) || 1;
-                
-                const startIdx = (this.currentPage - 1) * this.daysPerPage;
-                const currentDates = uniqueDates.slice(startIdx, startIdx + this.daysPerPage);
-                
-                const paginatedRecords = records.filter(r => currentDates.includes(r.dateStr));
-
-                document.getElementById('pagination-info').innerText = `Page ${this.currentPage} of ${totalPages} (Showing ${paginatedRecords.length} records across ${currentDates.length} day/s)`;
-
-                if(paginatedRecords.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="9" class="px-4 py-12 text-center text-slate-500">No records found.</td></tr>`;
-                    return;
+                // 3. Process "Other Location" (Max 15 per page, same logic as Local)
+                const otherEmps = emps.filter(e => e.type === 'Other Location').sort((a,b) => (a.job_category||'').localeCompare(b.job_category||''));
+                if(otherEmps.length > 0) {
+                    const chunks = this.chunkArray(otherEmps, 15);
+                    chunks.forEach(chunk => {
+                        let rows = '';
+                        let currentCat = null;
+                        chunk.forEach((emp, idx) => {
+                            const empCat = emp.job_category || 'UNASSIGNED';
+                            if(empCat !== currentCat) {
+                                currentCat = empCat;
+                                rows += `<tr><td colspan="12" class="job-category-row">${currentCat} - Other Location</td></tr>`;
+                            }
+                            rows += this.generateEmployeePrintRow(emp, idx + 1, getLog(emp.id));
+                        });
+                        finalPagesHTML += this.createPrintPageHTML(proj, compName, compAddr, compLogo, todayStr, rows);
+                    });
                 }
 
-                paginatedRecords.forEach(r => {
-                    let otBadge = r.otStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Pen</span>' : 
-                                 r.otStatus === 'APPROVED' ? '<span class="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Aprv</span>' :
-                                 r.otStatus === 'DISAPPROVED' ? '<span class="bg-red-100 text-red-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">OT Deny</span>' : '';
-                                 
-                    let offBadge = r.offsetStatus === 'PENDING' ? '<span class="bg-indigo-100 text-indigo-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Pen</span>' : 
-                                 r.offsetStatus === 'APPROVED' ? '<span class="bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Aprv</span>' :
-                                 r.offsetStatus === 'DISAPPROVED' ? '<span class="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Off Deny</span>' : '';
+                if(finalPagesHTML === '') {
+                    return this.showModal('Notice', 'No employees exist to print for this project.');
+                }
 
-                    let leaveBadge = r.leaveStatus === 'PENDING' ? '<span class="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Pen</span>' : 
-                                 r.leaveStatus === 'APPROVED' ? '<span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Aprv</span>' :
-                                 r.leaveStatus === 'DISAPPROVED' ? '<span class="bg-rose-100 text-rose-800 text-[10px] px-1.5 py-0.5 rounded font-medium uppercase ml-1">Lv Deny</span>' : '';
-
-                    let displayWorkHours = r.workHours || 0;
-                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
-                        displayWorkHours += r.offsetHours;
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition";
-                    tr.innerHTML = `
-                        <td class="px-4 py-3 font-medium text-slate-900">${r.empEmail}</td>
-                        <td class="px-4 py-3 text-slate-600">${r.dateStr}</td>
-                        <td class="px-4 py-3">${r.timeIn || '-'}</td>
-                        <td class="px-4 py-3">${r.timeOut || '-'}</td>
-                        <td class="px-4 py-3 font-semibold text-slate-800">${displayWorkHours.toFixed(2)}</td>
-                        <td class="px-4 py-3 font-semibold ${r.otHours > 0 ? 'text-purple-700' : (r.otHours < 0 ? 'text-rose-600' : 'text-slate-500')}">${r.otHours.toFixed(2)}</td>
-                        <td class="px-4 py-3 font-medium text-indigo-600">${r.offsetHours ? r.offsetHours.toFixed(2) : '-'}</td>
-                        <td class="px-4 py-3 text-xs text-slate-500 truncate max-w-[150px]" title="${r.notes}">${r.notes || '-'} <br> ${otBadge} ${offBadge} ${leaveBadge}</td>
-                        <td class="px-4 py-3"><button onclick="window.sysShowEditRecordModal('${r.id}')" class="text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-1 rounded text-xs font-bold border border-blue-200">EDIT</button></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+                pa.innerHTML = finalPagesHTML;
+                setTimeout(() => window.print(), 300); // slight delay to ensure images render
             },
-            
-            renderManageUsersTable() {
-                const tbody = document.getElementById('manage-users-body');
-                tbody.innerHTML = '';
-                this.users.forEach(u => {
-                    const roleBadge = u.isAdmin ? '<span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-bold uppercase">System Admin</span>' : '<span class="bg-slate-100 text-slate-600 px-2 py-1 rounded text-xs font-bold uppercase">Employee</span>';
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-slate-50 transition";
-                    tr.innerHTML = `
-                        <td class="px-6 py-4 font-medium text-slate-900">${u.name}</td>
-                        <td class="px-6 py-4 text-blue-600">${u.email}</td>
-                        <td class="px-6 py-4">${roleBadge}</td>
-                        <td class="px-6 py-4 text-right space-x-2">
-                            <button onclick="window.sysShowEditUserModal('${u.email}')" class="px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded font-medium transition text-xs shadow-sm border border-blue-200">Edit</button>
-                            <button onclick="window.sysDeleteUser('${u.email}')" class="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded font-medium transition text-xs shadow-sm border border-red-200">Delete</button>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
+
+            // --- EXPORT & MISC ---
+            roundTime15m(timeStr) {
+                if(!timeStr) return "";
+                let [h, m] = timeStr.split(':').map(Number);
+                let totalMins = h * 60 + m;
+                let rounded = Math.round(totalMins / 15) * 15;
+                let resH = Math.floor(rounded / 60) % 24;
+                let resM = rounded % 60;
+                return `${resH.toString().padStart(2,'0')}:${resM.toString().padStart(2,'0')}`;
             },
-            
-            exportToCSV(exportAll = false) {
-                const records = exportAll ? [...this.records].sort((a,b) => new Date(b.dateStr) - new Date(a.dateStr)) : this.getFilteredRecords();
-                if (records.length === 0) return this.showAlert("Notice", "No records found to export.");
 
-                let csvContent = "Employee Email,Date,Time In,Break In,Break Out,Time Out,Work Hours (Inc Offset),Auto OT/Deficit,Manual Offset Hours,Notes,OT Status,Offset Status,Leave Status\n";
+            exportData(isRounded) {
+                const logs = this.getFilteredRecords();
+                if(logs.length === 0) return this.showModal('Notice', 'No records found to export with the current filters.');
 
-                records.forEach(r => {
-                    let exportWorkHours = r.workHours || 0;
-                    if(r.offsetStatus === 'APPROVED' && r.offsetHours) {
-                        exportWorkHours += r.offsetHours;
+                let csvContent = "Date,Project Name,Employee ID,Employee Name,Category,Type,AM IN,AM OUT,PM IN,PM OUT,Total Hours,Cost Code Used\n";
+
+                logs.forEach(log => {
+                    const emp = this.employees.find(e => e.id === log.emp_id) || {};
+                    const proj = this.projects.find(p => p.id === log.project_id) || {};
+                    
+                    let ai = log.am_in||'', ao = log.am_out||'', pi = log.pm_in||'', po = log.pm_out||'';
+                    let total = log.total_hrs || 0;
+
+                    if(isRounded) {
+                        ai = this.roundTime15m(ai); ao = this.roundTime15m(ao);
+                        pi = this.roundTime15m(pi); po = this.roundTime15m(po);
+                        total = this.calculateHours(ai, ao) + this.calculateHours(pi, po);
                     }
 
                     const row = [
-                        `"${r.empEmail}"`, r.dateStr,
-                        r.timeIn || '', r.breakIn || '', r.breakOut || '', r.timeOut || '',
-                        exportWorkHours.toFixed(2), r.otHours.toFixed(2), r.offsetHours ? r.offsetHours.toFixed(2) : 0,
-                        `"${r.notes || ''}"`, r.otStatus, r.offsetStatus || 'N/A', r.leaveStatus || 'N/A'
+                        log.date, `"${proj.name||''}"`, `"${emp.emp_id||''}"`, `"${emp.name||''}"`, `"${emp.job_category||''}"`, `"${emp.type||''}"`,
+                        ai, ao, pi, po, total.toFixed(2), `"${log.cost_code_used||''}"`
                     ];
                     csvContent += row.join(',') + "\n";
                 });
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const a = document.createElement("a");
-                a.setAttribute("href", window.URL.createObjectURL(blob));
-                a.setAttribute("download", `Timesheet_Export_${this.formatDate(new Date())}.csv`);
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = `Timesheet_Export_${isRounded?'Rounded':'Exact'}_${this.getTodayDateStr()}.csv`;
+                link.click();
+            },
+
+            getFilteredRecords() {
+                let filtered = [...this.timesheets];
+                const pid = document.getElementById('filter-project')?.value;
+                const start = document.getElementById('filter-start')?.value;
+                const end = document.getElementById('filter-end')?.value;
+                if (pid) filtered = filtered.filter(r => r.project_id === pid);
+                if (start) filtered = filtered.filter(r => new Date(r.date) >= new Date(start));
+                if (end) filtered = filtered.filter(r => new Date(r.date) <= new Date(end));
+                return filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+            },
+
+            renderAllRecordsTable() {
+                const tbody = document.getElementById('all-records-body');
+                if(!tbody) return;
+                tbody.innerHTML = '';
+                const records = this.getFilteredRecords();
+                const uniqueDates = [...new Set(records.map(r => r.date))];
+                const totalPages = Math.ceil(uniqueDates.length / this.daysPerPage) || 1;
+                const startIdx = (this.currentPage - 1) * this.daysPerPage;
+                const currentDates = uniqueDates.slice(startIdx, startIdx + this.daysPerPage);
+                const paginatedRecords = records.filter(r => currentDates.includes(r.date));
+                document.getElementById('pagination-info').innerText = `Page ${this.currentPage} of ${totalPages} (Showing ${paginatedRecords.length} records across ${currentDates.length} day/s)`;
+
+                if(paginatedRecords.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="10" class="px-4 py-12 text-center text-slate-500">No records found.</td></tr>`;
+                    return;
+                }
+
+                paginatedRecords.forEach(r => {
+                    const emp = this.employees.find(e => e.id === r.emp_id) || {};
+                    const proj = this.projects.find(p => p.id === r.project_id) || {};
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition border-b">
+                            <td class="px-4 py-3 text-slate-600 truncate max-w-[150px]">${proj.name || 'Unknown'}</td>
+                            <td class="px-4 py-3 text-slate-600 font-medium">${r.date}</td>
+                            <td class="px-4 py-3 text-xs">${emp.emp_id || '-'}</td>
+                            <td class="px-4 py-3 font-medium">${emp.name || 'Unknown'}</td>
+                            <td class="px-4 py-3">${r.am_in || '-'}</td>
+                            <td class="px-4 py-3">${r.am_out || '-'}</td>
+                            <td class="px-4 py-3">${r.pm_in || '-'}</td>
+                            <td class="px-4 py-3">${r.pm_out || '-'}</td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-500">${r.cost_code_used || '-'}</td>
+                            <td class="px-4 py-3 font-semibold text-slate-800">${(r.total_hrs || 0).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
             },
 
             showResetDataModal() {
-                this.showGenericModal("Reset / Erase Database", `
+                this.showFormModal("Reset / Erase Timesheet Database", `
                     <div class="p-3 bg-rose-50 text-rose-800 rounded-lg border border-rose-200 mb-4 text-sm font-medium">
-                        ⚠️ Warning: Deleting records is permanent. It is strongly recommended to download an archive first.
+                        ⚠️ Warning: Deleting records is permanent. It is strongly recommended to export an archive first.
                     </div>
-                    <div class="mb-4">
-                        <button id="btn-modal-archive" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-lg transition flex justify-center items-center">
-                            Download Archive (All Records)
-                        </button>
-                    </div>
-                    <hr class="mb-4 border-slate-200">
                     <div class="mb-3">
                         <label class="flex items-center space-x-2 text-sm font-bold text-rose-700 cursor-pointer">
                             <input type="checkbox" id="reset-erase-all" class="w-4 h-4 text-rose-600 rounded">
-                            <span>Erase ALL Data (Clear entire timesheet database)</span>
+                            <span>Erase ALL Timesheet Data (Does not delete projects/employees)</span>
                         </label>
                     </div>
                     <div id="reset-date-range" class="grid grid-cols-2 gap-4 transition-opacity">
@@ -1367,61 +1355,191 @@
 
                 document.getElementById('reset-erase-all').addEventListener('change', (e) => {
                     const dateRangeDiv = document.getElementById('reset-date-range');
-                    if(e.target.checked) {
-                        dateRangeDiv.classList.add('opacity-40', 'pointer-events-none');
-                    } else {
-                        dateRangeDiv.classList.remove('opacity-40', 'pointer-events-none');
-                    }
+                    if(e.target.checked) dateRangeDiv.classList.add('opacity-40', 'pointer-events-none');
+                    else dateRangeDiv.classList.remove('opacity-40', 'pointer-events-none');
                 });
-
-                document.getElementById('btn-modal-archive').onclick = (e) => {
-                    e.preventDefault();
-                    this.exportToCSV(true);
-                };
             },
 
             async executeDataReset() {
                 const eraseAll = document.getElementById('reset-erase-all').checked;
                 const start = document.getElementById('reset-start').value;
                 const end = document.getElementById('reset-end').value;
-
                 let recordsToDelete = [];
-
-                if (eraseAll) {
-                    recordsToDelete = this.records;
-                } else {
-                    if (!start || !end) return this.showAlert("Error", "Please select a date range, or check 'Erase ALL Data'.", true);
-                    recordsToDelete = this.records.filter(r => {
-                        const rDate = new Date(r.dateStr);
+                if (eraseAll) recordsToDelete = this.timesheets;
+                else {
+                    if (!start || !end) return this.showModal("Error", "Please select a date range, or check 'Erase ALL Data'.");
+                    recordsToDelete = this.timesheets.filter(r => {
+                        const rDate = new Date(r.date);
                         return rDate >= new Date(start) && rDate <= new Date(end);
                     });
                 }
-
-                if (recordsToDelete.length === 0) {
-                    return this.showAlert("Notice", "No records found matching the criteria to delete.");
-                }
-                
+                if (recordsToDelete.length === 0) return this.showModal("Notice", "No records found matching the criteria to delete.");
                 try {
-                    const submitBtn = document.getElementById('modal-form-submit');
-                    submitBtn.innerText = "Deleting...";
-                    submitBtn.disabled = true;
-
-                    for(const rec of recordsToDelete) {
-                        await deleteDoc(doc(db, "timesheet_records", rec.id));
-                    }
-
-                    this.closeModal('modal-form');
-                    this.showAlert("Success", `${recordsToDelete.length} records have been permanently deleted.`);
+                    const submitBtn = document.getElementById('btn-modal-confirm');
+                    submitBtn.innerText = "Deleting..."; submitBtn.disabled = true;
+                    for(const rec of recordsToDelete) await deleteDoc(docPath('timesheets', rec.id));
+                    this.hideModal(); this.showModal("Success", `${recordsToDelete.length} records have been permanently deleted.`);
                 } catch(e) {
-                    this.showAlert("Database Error", "Failed to delete records.", true);
-                    document.getElementById('modal-form-submit').disabled = false;
-                    document.getElementById('modal-form-submit').innerText = "Submit";
+                    this.showModal("Database Error", "Failed to delete records.");
+                    document.getElementById('btn-modal-confirm').disabled = false; document.getElementById('btn-modal-confirm').innerText = "OK";
                 }
+            },
+
+            showChangePasswordModal() {
+                this.showFormModal("Change Password", `<div><label class="block text-sm font-medium mb-1">New Password</label><input type="password" id="pass-new" class="w-full px-3 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"></div>`, async () => {
+                    const newP = document.getElementById('pass-new').value;
+                    if(!newP) return this.showModal("Error", "Password cannot be empty.");
+                    try {
+                        await updateDoc(docPath('users', this.profile.username), { password: newP });
+                        this.profile.password = newP;
+                        this.hideModal(); this.showModal("Success", "Your password has been securely updated in the database.");
+                    } catch (e) { this.showModal("Database Error", "Failed to update password."); }
+                });
+            },
+
+            renderUsers() {
+                const tbody = document.getElementById('users-body');
+                if(!tbody) return;
+                tbody.innerHTML = '';
+                this.users.forEach(u => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 border-b">
+                            <td class="px-6 py-4 font-medium">${u.name}</td>
+                            <td class="px-6 py-4">${u.username}</td>
+                            <td class="px-6 py-4 uppercase text-xs font-bold ${u.role==='admin'?'text-blue-600':'text-amber-600'}">${u.role}</td>
+                        </tr>
+                    `;
+                });
+            },
+
+            // --- COMPANY SETTINGS ---
+            handleLogoUpload(e) {
+                const file = e.target.files[0];
+                if(!file) return;
+                if(file.size > 500 * 1024) return this.showModal('Error', 'Image too large. Maximum size is 500KB.');
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64Str = event.target.result;
+                    this.companySettings.logo_url = base64Str;
+                    document.getElementById('settings-logo-preview').innerHTML = `<img src="${base64Str}" class="max-w-full max-h-full object-contain">`;
+                };
+                reader.readAsDataURL(file);
+            },
+
+            async saveCompanySettings() {
+                const name = document.getElementById('settings-company-name').value.trim();
+                const address = document.getElementById('settings-company-address').value.trim();
+                try {
+                    await setDoc(docPath('settings', 'company'), { name: name, address: address, logo_url: this.companySettings.logo_url || '' }, {merge: true});
+                    this.showModal('Success', 'Global company settings updated successfully.');
+                } catch(e) { this.showModal('Error', 'Failed to save settings.'); }
+            },
+
+            updateClock() {
+                const now = this.getRealTime();
+                const clockEl = document.getElementById('live-clock');
+                if (clockEl) {
+                    if (this.demoOffset !== 0) {
+                        clockEl.classList.replace('bg-blue-800', 'bg-amber-600');
+                        clockEl.innerText = "DEMO: " + now.toLocaleTimeString('en-US');
+                    } else {
+                        clockEl.classList.replace('bg-amber-600', 'bg-blue-800');
+                        clockEl.innerText = now.toLocaleTimeString('en-US');
+                    }
+                }
+                const ds = document.getElementById('dash-date-display');
+                if(ds) ds.innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            },
+
+            showModal(title, msgHtml, showCancel = false, confirmCb = null) {
+                document.getElementById('modal-title').innerText = title;
+                document.getElementById('modal-content').innerHTML = msgHtml;
+                const btnCancel = document.getElementById('btn-modal-cancel');
+                const btnConfirm = document.getElementById('btn-modal-confirm');
+                
+                if(showCancel) btnCancel.classList.remove('hidden'); else btnCancel.classList.add('hidden');
+                
+                btnConfirm.onclick = () => { if(confirmCb) confirmCb(); this.hideModal(); };
+                btnCancel.onclick = () => this.hideModal();
+                
+                document.getElementById('modal-container').classList.remove('hidden');
+                document.getElementById('modal-container').classList.add('flex');
+            },
+
+            showFormModal(title, formHtml, submitCb) {
+                this.showModal(title, formHtml, true, submitCb);
+            },
+
+            hideModal() {
+                document.getElementById('modal-container').classList.add('hidden');
+                document.getElementById('modal-container').classList.remove('flex');
+            },
+
+            bindUI() {
+                document.getElementById('login-form').onsubmit = (e) => this.handleLogin(e);
+                document.getElementById('btn-signout').onclick = () => { localStorage.removeItem('pm_session_username'); window.location.reload(); };
+                document.getElementById('btn-change-password').onclick = () => this.showChangePasswordModal();
+
+                const tbs = ['pm-roster', 'pm-timesheet', 'admin-projects', 'admin-roster', 'admin-all-records', 'admin-users', 'admin-settings', 'admin-demo'];
+                tbs.forEach(t => { const el = document.getElementById(`tab-btn-${t}`); if(el) el.onclick = () => this.switchTab(t); });
+
+                document.getElementById('btn-validate-gps').onclick = () => this.validateGPS();
+                // Bound the new Excel/CSV engine to the input element
+                document.getElementById('excel-file-input').onchange = (e) => this.handleFileUpload(e);
+                document.getElementById('btn-print-dtr').onclick = () => this.generatePrintView();
+                document.getElementById('settings-logo-upload').onchange = (e) => this.handleLogoUpload(e);
+                
+                document.getElementById('btn-add-project').onclick = () => this.editProject(null);
+                document.getElementById('btn-add-user').onclick = () => {
+                    this.showFormModal('Add System User', `
+                        <input type="text" id="nu-name" placeholder="Full Name" class="w-full px-3 py-2 border rounded mb-3 outline-none">
+                        <input type="text" id="nu-username" placeholder="Username" class="w-full px-3 py-2 border rounded mb-3 outline-none">
+                        <input type="text" id="nu-pass" placeholder="Password" class="w-full px-3 py-2 border rounded mb-3 outline-none">
+                        <select id="nu-role" class="w-full px-3 py-2 border rounded outline-none"><option value="pm">Project Manager (PM)</option><option value="admin">System Admin</option></select>
+                    `, async () => {
+                        const username = document.getElementById('nu-username').value.trim().toLowerCase();
+                        if(!username) return;
+                        try {
+                            await setDoc(docPath('users', username), { username, name: document.getElementById('nu-name').value, password: document.getElementById('nu-pass').value, role: document.getElementById('nu-role').value });
+                        } catch(e) { this.showModal('Error','Failed to add user.'); }
+                    });
+                };
+
+                document.getElementById('btn-filter-records').onclick = () => { this.currentPage = 1; this.renderAllRecordsTable(); };
+                document.getElementById('btn-reset-data').onclick = () => this.showResetDataModal();
+                document.getElementById('btn-prev-page').onclick = () => { if(this.currentPage > 1) { this.currentPage--; this.renderAllRecordsTable(); } };
+                document.getElementById('btn-next-page').onclick = () => { 
+                    const records = this.getFilteredRecords();
+                    const totalPages = Math.ceil([...new Set(records.map(r => r.date))].length / this.daysPerPage);
+                    if(this.currentPage < totalPages) { this.currentPage++; this.renderAllRecordsTable(); } 
+                };
+
+                document.getElementById('btn-demo-apply').onclick = () => {
+                    const dateVal = document.getElementById('demo-date').value;
+                    const timeVal = document.getElementById('demo-time').value;
+                    if(!dateVal || !timeVal) return this.showModal("Error", "Select both a target date and time.");
+                    const targetDate = new Date(`${dateVal}T${timeVal}`);
+                    const realNetworkTime = Date.now() + this.timeOffset;
+                    this.demoOffset = targetDate.getTime() - realNetworkTime;
+                    this.showModal("Time Warped", `System time is now simulating ${targetDate.toLocaleString()}`);
+                    this.renderRoster(); this.renderTimesheetEdit();
+                };
+                
+                document.getElementById('btn-demo-reset').onclick = () => {
+                    this.demoOffset = 0;
+                    this.showModal("Reset Success", "System clock restored to real time.");
+                    this.renderRoster(); this.renderTimesheetEdit();
+                };
+
+                const updateTimeDemo = (ms) => { this.demoOffset += ms; this.renderRoster(); this.renderTimesheetEdit(); };
+                document.getElementById('btn-demo-add-1h').onclick = () => updateTimeDemo(3600000);
+                document.getElementById('btn-demo-add-4h').onclick = () => updateTimeDemo(14400000);
+                document.getElementById('btn-demo-add-8h').onclick = () => updateTimeDemo(28800000);
+                document.getElementById('btn-demo-add-1d').onclick = () => updateTimeDemo(86400000);
             }
         };
 
-        // Boot System
-        window.onload = () => sys.init();
+        window.onload = () => app.init();
     </script>
 </body>
 </html>
